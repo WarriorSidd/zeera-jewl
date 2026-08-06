@@ -12,6 +12,10 @@ from datetime import datetime
 
 app = FastAPI(title="zjewl PT Backend")
 
+def get_allowed_origins() -> list[str]:
+    raw = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000")
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
 # ensure logs dir
 try:
     import os
@@ -38,7 +42,7 @@ async def global_exception_handler(request, exc):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,18 +1,24 @@
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import text
 from dotenv import load_dotenv
 
 load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite+aiosqlite:///./zjewl.db')
 
-engine = create_async_engine(DATABASE_URL, future=True)
+def make_sync_database_url(database_url: str) -> str:
+    if database_url.startswith('sqlite+aiosqlite'):
+        return database_url.replace('sqlite+aiosqlite', 'sqlite', 1)
+    if database_url.startswith('postgresql+asyncpg'):
+        return database_url.replace('postgresql+asyncpg', 'postgresql+psycopg2', 1)
+    return database_url
+
+engine = create_async_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-# For sync operations (create_all during dev) expose sync engine
 from sqlalchemy import create_engine
-sync_engine = create_engine(DATABASE_URL.replace('sqlite+aiosqlite', 'sqlite'), future=True)
+
+sync_engine = create_engine(make_sync_database_url(DATABASE_URL), future=True, pool_pre_ping=True)
 
 Base = declarative_base()
 
