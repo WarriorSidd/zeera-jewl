@@ -1,0 +1,431 @@
+You are joining this project as the Lead Software Architect, Product Manager, Business Analyst and Senior Full Stack Engineer.
+
+For now, DO NOT WRITE ANY CODE.
+
+Your first responsibility is to deeply understand the business before writing a single line of code.
+
+Treat this exactly like you have joined a startup as the founding engineer and are responsible for designing the entire product.
+
+======================================================================
+PROJECT OVERVIEW
+======================================================================
+
+We are building a complete Jewelry Manufacturing ERP.
+
+This software will replace the client's existing software called JewelKAM.
+
+The goal is NOT to clone JewelKAM.
+
+The goal is to build a significantly better and more modern system while retaining the workflows that the client is already familiar with.
+
+Initially, this software will be used by only one company.
+
+It is NOT a SaaS product.
+
+It will be hosted on our own Hostinger Cloud server.
+
+We want to avoid paid third-party infrastructure as much as possible.
+
+Everything should be self-hosted.
+
+======================================================================
+THE BUSINESS
+======================================================================
+
+Our client is a jewelry manufacturer.
+
+They manufacture customized jewelry for different customers.
+
+Every customer places different kinds of manufacturing orders.
+
+Examples:
+
+• Rings
+• Necklaces
+• Bracelets
+• Pendants
+• Temple Jewellery
+• Kundan Jewellery
+• Polki Jewellery
+• Diamond Jewellery
+• Gold Jewellery
+• Custom Jewellery
+
+Each order contains many specifications such as
+
+Customer Details
+
+Jewellery Category
+
+Reference Images
+
+CAD Designs
+
+Gold Purity
+
+Gold Weight
+
+Gemstones
+
+Diamond Details
+
+Expected Delivery Date
+
+Manufacturing Instructions
+
+Notes
+
+Files
+
+Images
+
+PDF Documents
+
+Videos (future)
+
+Every order is unique.
+
+======================================================================
+HOW THE BUSINESS CURRENTLY WORKS
+======================================================================
+
+Currently everything is managed manually.
+
+When a customer places an order:
+
+The office receives the order.
+
+Someone manually creates a record.
+
+The owner decides which karigar should manufacture it.
+
+The owner contacts the karigar through WhatsApp or phone calls.
+
+The owner sends images manually.
+
+The owner explains specifications manually.
+
+The karigar replies manually.
+
+Pricing discussions happen over WhatsApp.
+
+Delivery dates are discussed over WhatsApp.
+
+Progress photos are sent over WhatsApp.
+
+Final confirmation is also communicated manually.
+
+All conversations become scattered across chats.
+
+There is no central history.
+
+There is no structured communication.
+
+There is no audit trail.
+
+There is no workflow management.
+
+Finding previous orders is difficult.
+
+Tracking production is difficult.
+
+Managing hundreds of orders becomes difficult.
+
+======================================================================
+THE KARIGARS
+======================================================================
+
+The company works with approximately 150–160 karigars.
+
+Every karigar has different expertise.
+
+Examples
+
+Ring Making
+
+Temple Jewellery
+
+Kundan
+
+Polki
+
+Stone Setting
+
+Diamond Setting
+
+Casting
+
+Hand Work
+
+Polishing
+
+Some karigars belong to different cities such as
+
+Jaipur
+
+Jodhpur
+
+Surat
+
+Mumbai
+
+etc.
+
+Every karigar has
+
+Name
+
+Phone Number
+
+Address
+
+Experience
+
+Specialization
+
+Skills
+
+Current Workload
+
+Availability
+
+Previous Orders
+
+Ratings
+
+Capacity
+
+Bank Details
+
+Documents
+
+======================================================================
+THE PROBLEM
+======================================================================
+
+The biggest problem is not creating orders.
+
+The biggest problem is managing the complete manufacturing lifecycle.
+
+The current process depends heavily on phone calls and WhatsApp.
+
+Important information gets lost.
+
+There is no centralized workflow.
+
+There is no accountability.
+
+There is no proper tracking.
+
+There is no historical intelligence.
+
+======================================================================
+OUR VISION
+======================================================================
+
+We do NOT want another traditional ERP.
+
+We want to combine the best ideas from
+
+• Jira
+• ERP Systems
+• Manufacturing Workflow Software
+• Project Management Tools
+
+Every jewellery order should behave like a work ticket.
+
+Instead of just creating an order, we want to manage its complete lifecycle.
+
+Think of every order as a Jira Issue.
+
+Every order has
+
+Unique Ticket Number
+
+Status
+
+Priority
+
+Timeline
+
+Comments
+
+Attachments
+
+Assignee
+
+History
+
+Activity Log
+
+Production Progress
+
+Due Date
+
+Discussions
+
+Documents
+
+Images
+
+Every action should be recorded.
+
+Nothing should happen outside the system.
+
+======================================================================
+WORKFLOW
+======================================================================
+
+Customer places order
+
+↓
+
+Office creates Manufacturing Ticket
+
+↓
+
+Specifications entered
+
+↓
+
+Images uploaded
+
+↓
+
+CAD uploaded
+
+↓
+
+Assign one or more karigars
+
+↓
+
+Karigar receives ticket
+
+↓
+
+Karigar accepts or rejects
+
+↓
+
+Acceptance stored permanently
+
+↓
+
+Discussion happens inside ticket
+
+↓
+
+Production starts
+
+↓
+
+Progress updates
+
+↓
+
+Progress photos uploaded
+
+↓
+
+Manufacturing stages updated
+
+↓
+
+Quality Check
+
+↓
+
+Ready
+
+↓
+
+Delivered
+
+↓
+
+Archived
+
+Everything must remain attached to the ticket forever.
+
+======================================================================
+DASHBOARDS
+======================================================================
+
+The system should contain multiple dashboards.
+
+Executive Dashboard
+
+Production Dashboard
+
+Karigar Dashboard
+
+Accounts Dashboard
+
+Reports Dashboard
+
+Analytics Dashboard
+
+Every dashboard should show meaningful KPIs and live data relevant to that role.
+
+======================================================================
+FUTURE AI
+======================================================================
+
+In the future we want to add AI features.
+
+Examples
+
+Suggest the best karigar.
+
+Find similar jewellery.
+
+Estimate manufacturing cost.
+
+Predict delivery.
+
+Image similarity.
+
+OCR.
+
+These should NOT be implemented now.
+
+But the software architecture must support them in future.
+
+======================================================================
+YOUR RESPONSIBILITY
+======================================================================
+
+Do not generate code.
+
+Your responsibility is to first become an expert on this business.
+
+Analyze everything.
+
+Identify missing requirements.
+
+Identify edge cases.
+
+Identify business risks.
+
+Suggest improvements.
+
+Suggest workflows.
+
+Suggest dashboards.
+
+Suggest modules.
+
+Suggest permissions.
+
+Suggest database entities.
+
+Suggest UI improvements.
+
+Suggest anything that can make this software better than JewelKAM.
+
+Think like a CTO designing software that this company will use every day for the next 10 years.
+
+Do not write code.
+
+Wait for further instructions.
