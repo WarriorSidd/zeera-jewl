@@ -50,6 +50,15 @@ After deployment, Render will give you a backend URL like:
 https://zeera-jewl-api.onrender.com
 ```
 
+To show backend deployments in GitHub's Deployments page, add these GitHub repository secrets:
+
+```env
+RENDER_DEPLOY_HOOK_URL=<Render deploy hook URL>
+RENDER_SERVICE_URL=https://zeera-jewl-api.onrender.com
+```
+
+The `Render Backend Deployment` GitHub Actions workflow creates a GitHub deployment entry, triggers Render, waits for `/api/v1/health`, and then marks the deployment success or failure.
+
 ### 3. Vercel
 
 1. Import the GitHub repo in Vercel.

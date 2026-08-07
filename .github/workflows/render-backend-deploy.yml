@@ -1,0 +1,103 @@
+name: Render Backend Deployment
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - backend/**
+      - render.yaml
+      - .github/workflows/render-backend-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: render-backend
+      url: ${{ secrets.RENDER_SERVICE_URL }}
+    steps:
+      - name: Validate Render secrets
+        run: |
+          test -n "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          test -n "${{ secrets.RENDER_SERVICE_URL }}"
+
+      - name: Create GitHub deployment
+        uses: actions/github-script@v7
+        id: deployment
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'render-backend',
+              description: 'Deploy FastAPI backend to Render',
+              auto_merge: false,
+              required_contexts: [],
+              production_environment: true
+            });
+            core.setOutput('deployment_id', deployment.data.id);
+
+      - name: Mark deployment in progress
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: '${{ steps.deployment.outputs.deployment_id }}',
+              state: 'in_progress',
+              environment: 'render-backend',
+              environment_url: '${{ secrets.RENDER_SERVICE_URL }}',
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: 'Render backend deployment started'
+            });
+
+      - name: Trigger Render deploy
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Wait for backend health
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS "${{ secrets.RENDER_SERVICE_URL }}/api/v1/health"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+
+      - name: Mark deployment success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: '${{ steps.deployment.outputs.deployment_id }}',
+              state: 'success',
+              environment: 'render-backend',
+              environment_url: '${{ secrets.RENDER_SERVICE_URL }}',
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: 'Render backend is healthy'
+            });
+
+      - name: Mark deployment failure
+        if: failure() && steps.deployment.outputs.deployment_id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: '${{ steps.deployment.outputs.deployment_id }}',
+              state: 'failure',
+              environment: 'render-backend',
+              environment_url: '${{ secrets.RENDER_SERVICE_URL }}',
+              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: 'Render backend deployment failed'
+            });
