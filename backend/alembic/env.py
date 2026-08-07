@@ -6,7 +6,7 @@ import os
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from app.database import DATABASE_URL
+from app.database import RAW_DATABASE_URL, make_sync_database_url
 from app.models import Base
 import app.production.models as production_models  # noqa: F401  registers PT tables
 
@@ -21,13 +21,13 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 def run_migrations_offline():
-    url = DATABASE_URL
+    url = make_sync_database_url(RAW_DATABASE_URL)
     context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
     with context.begin_transaction():
         context.run_migrations()
 
 def run_migrations_online():
-    config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("+asyncpg", "+psycopg2"))
+    config.set_main_option("sqlalchemy.url", make_sync_database_url(RAW_DATABASE_URL))
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),
         prefix='sqlalchemy.',

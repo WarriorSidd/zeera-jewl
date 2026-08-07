@@ -3,9 +3,64 @@
 This project is best deployed as two pieces:
 
 - Frontend: Next.js on Vercel free tier.
-- Backend and database: FastAPI plus PostgreSQL on your Hostinger Cloud server.
+- Backend and database: either FastAPI plus PostgreSQL on your Hostinger Cloud server, or FastAPI on Render with Neon Postgres.
 
-No extra paid service is required for the current code. If you later want a managed free database instead of running Postgres on Hostinger, use Supabase or Neon and set `DATABASE_URL` to their PostgreSQL connection string.
+No extra paid service is required for the current code.
+
+## Recommended Free/Staging Topology
+
+- Vercel: `frontend`
+- Render: `backend`
+- Neon: PostgreSQL
+
+### 1. Neon
+
+1. Create a Neon project.
+2. Copy the connection string from the Neon dashboard.
+3. Use the regular connection string Neon provides, for example:
+
+```env
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require&channel_binding=require
+```
+
+The backend normalizes this URL for SQLAlchemy async connections automatically.
+
+### 2. Render
+
+1. Create a new Render Web Service from this GitHub repo.
+2. Use the included `render.yaml` blueprint, or configure manually:
+   - Root directory: `backend`
+   - Runtime: Python
+   - Build command: `pip install -r requirements.txt`
+   - Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Health check path: `/api/v1/health`
+3. Add environment variables:
+
+```env
+DATABASE_URL=<your Neon connection string>
+SECRET_KEY=<long random secret>
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+FRONTEND_ORIGINS=https://your-vercel-app.vercel.app
+```
+
+After deployment, Render will give you a backend URL like:
+
+```text
+https://zeera-jewl-api.onrender.com
+```
+
+### 3. Vercel
+
+1. Import the GitHub repo in Vercel.
+2. Set root directory to `frontend`.
+3. Add:
+
+```env
+NEXT_PUBLIC_API_URL=https://zeera-jewl-api.onrender.com
+```
+
+Do not include `/api/v1` in `NEXT_PUBLIC_API_URL`.
 
 ## 1. Backend on Hostinger Cloud
 
