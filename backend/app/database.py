@@ -10,27 +10,27 @@ RAW_DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite+aiosqlite:///./zjewl.db')
 def make_async_database_url(database_url: str) -> str:
     url = make_url(database_url.replace('postgres://', 'postgresql://', 1))
     if url.drivername == 'sqlite':
-        return str(url.set(drivername='sqlite+aiosqlite'))
+        return url.set(drivername='sqlite+aiosqlite').render_as_string(hide_password=False)
     if url.drivername.startswith('postgresql'):
         query = dict(url.query)
         sslmode = query.pop('sslmode', None)
         query.pop('channel_binding', None)
         if sslmode:
             query['ssl'] = sslmode
-        return str(url.set(drivername='postgresql+asyncpg', query=query))
-    return str(url)
+        return url.set(drivername='postgresql+asyncpg', query=query).render_as_string(hide_password=False)
+    return url.render_as_string(hide_password=False)
 
 def make_sync_database_url(database_url: str) -> str:
     url = make_url(database_url.replace('postgres://', 'postgresql://', 1))
     if url.drivername.startswith('sqlite'):
-        return str(url.set(drivername='sqlite'))
+        return url.set(drivername='sqlite').render_as_string(hide_password=False)
     if url.drivername.startswith('postgresql'):
         query = dict(url.query)
         ssl = query.pop('ssl', None)
         if ssl and 'sslmode' not in query:
             query['sslmode'] = ssl
-        return str(url.set(drivername='postgresql+psycopg2', query=query))
-    return str(url)
+        return url.set(drivername='postgresql+psycopg2', query=query).render_as_string(hide_password=False)
+    return url.render_as_string(hide_password=False)
 
 DATABASE_URL = make_async_database_url(RAW_DATABASE_URL)
 
