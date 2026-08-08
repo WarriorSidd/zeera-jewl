@@ -1,5 +1,6 @@
 import os
 import ssl
+import re
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import create_engine
@@ -13,11 +14,25 @@ DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql+asyncpg://postgres:postgres
 
 def _build_async_engine():
     url = DATABASE_URL
+
+    # Ensure scheme uses +asyncpg driver regardless of how DATABASE_URL was entered
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif url.startswith("sqlite://"):
+        url = url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+
     kwargs: dict = {"future": True, "pool_pre_ping": True}
 
-    # asyncpg does not accept sslmode= in the URL; extract it and pass ssl= instead
-    if 'sslmode=require' in url:
-        url = url.replace('?sslmode=require', '').replace('&sslmode=require', '')
+    # asyncpg does not accept sslmode= in the URL; extract it and pass ssl context instead
+    if 'sslmode=' in url:
+        url = re.sub(r'[?&]sslmode=[^&]+', '', url)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        kwargs["connect_args"] = {"ssl": ctx}
+    elif 'neon.tech' in url:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -33,15 +48,23 @@ async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession
 
 def _build_sync_engine():
     url = DATABASE_URL
-    # Strip sslmode from URL and inject ssl_context for psycopg2
-    if 'sslmode=require' in url:
-        url = url.replace('?sslmode=require', '').replace('&sslmode=require', '')
-    # Swap asyncpg driver → psycopg2 for the sync engine
-    if url.startswith('postgresql+asyncpg'):
-        url = url.replace('postgresql+asyncpg', 'postgresql+psycopg2')
-    # psycopg2 supports sslmode as a connect_arg
-    return create_engine(url, future=True, pool_pre_ping=True,
-                         connect_args={"sslmode": "require"} if 'neon.tech' in url else {})
+
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    if 'sslmode=' in url:
+        url = re.sub(r'[?&]sslmode=[^&]+', '', url)
+
+    return create_engine(
+        url,
+        future=True,
+        pool_pre_ping=True,
+        connect_args={"sslmode": "require"} if 'neon.tech' in url else {},
+    )
 
 
 sync_engine = _build_sync_engine()
