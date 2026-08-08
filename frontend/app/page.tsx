@@ -1,18 +1,18 @@
 'use client'
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { getStoredUser } from './lib/api'
 
 export default function Home() {
   const router = useRouter()
   useEffect(() => {
-    router.replace('/dashboard')
+    const user = getStoredUser()
+    if (user) {
+      router.replace('/production')
+    } else {
+      router.replace('/login')
+    }
   }, [router])
-  return (
-    <div className="d-flex align-items-center justify-content-center w-100" style={{ minHeight: '60vh' }}>
-      <div className="text-center">
-<h2 className="mb-3">zjewl · Atelier of Fine Jewellery</h2>
-        <div className="skeleton w-100 mx-auto" style={{ height: 8, width: 220 }} />
-      </div>
-    </div>
-  )
+
+  return null
 }

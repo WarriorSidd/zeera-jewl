@@ -45,7 +45,7 @@ async def seed():
     conn = await asyncpg.connect(conn_url, ssl=ssl)
 
     SEED_USERS = [
-        {"username": "owner",    "full_name": "Mehul (Owner)",  "password": "Owner1234",   "role": "owner"},
+        {"username": "owner",    "full_name": "Atelier Owner",  "password": "Owner1234",   "role": "owner"},
         {"username": "karigar1", "full_name": "Ramesh Karigar", "password": "Karigar1234", "role": "karigar"},
         {"username": "karigar2", "full_name": "Suresh Karigar", "password": "Karigar1234", "role": "karigar"},
     ]

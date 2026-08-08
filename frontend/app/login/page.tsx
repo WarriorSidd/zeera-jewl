@@ -112,13 +112,6 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-
-        <div className="mt-4 text-center text-muted" style={{ fontSize: 12 }}>
-          <div>Test accounts: <strong>owner / Owner1234</strong> · <strong>karigar1 / Karigar1234</strong></div>
-          <div className="mt-2" style={{ fontSize: 11, opacity: 0.75, fontFamily: 'monospace' }}>
-            Target API: {API_URL}
-          </div>
-        </div>
       </div>
     </div>
   )
