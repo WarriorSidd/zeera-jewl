@@ -16,13 +16,6 @@ except Exception as e:
 app = FastAPI(title="zjewl PT Backend", version="v1")
 
 
-def get_allowed_origins() -> list[str]:
-    raw = os.getenv("FRONTEND_ORIGINS", "*")
-    if raw.strip() == "*":
-        return ["*"]
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
-
-
 # Ensure logs dir exists
 try:
     os.makedirs(os.path.join(os.path.dirname(__file__), '..', 'logs'), exist_ok=True)
@@ -52,11 +45,15 @@ async def global_exception_handler(request, exc):
     raise exc
 
 
-allowed_origins = get_allowed_origins()
+# CORS configuration — supports Vercel preview & production deployments + localhost
+raw_origins = os.getenv("FRONTEND_ORIGINS", "")
+custom_origins = [o.strip() for o in raw_origins.split(",") if o.strip() and o.strip() != "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins if allowed_origins != ["*"] else ["*"],
-    allow_credentials=True if allowed_origins != ["*"] else False,
+    allow_origins=custom_origins if custom_origins else ["*"],
+    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
