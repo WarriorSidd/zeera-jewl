@@ -37,7 +37,19 @@ class ProductionTicketService:
     async def create_ticket(self, payload: PTCreate, created_by: Optional[str] = None) -> ProductionTicket:
         # generate ticket number: PT-YYYY-xxxxx
         ticket_num = f"PT-{datetime.utcnow().year}-{str(uuid4())[:8].upper()}"
-        pt = ProductionTicket(ticket_number=ticket_num, title=payload.title, description=payload.description, expected_delivery=payload.expected_delivery, priority=payload.priority, category=payload.category, parent_id=payload.parent_id, created_by_id=created_by)
+        exp_del = payload.expected_delivery
+        if exp_del and exp_del.tzinfo is not None:
+            exp_del = exp_del.replace(tzinfo=None)
+        pt = ProductionTicket(
+            ticket_number=ticket_num,
+            title=payload.title,
+            description=payload.description,
+            expected_delivery=exp_del,
+            priority=payload.priority,
+            category=payload.category,
+            parent_id=payload.parent_id,
+            created_by_id=created_by
+        )
         created = await self.repo.create(pt)
         # tags
         if payload.tags:
@@ -58,6 +70,12 @@ class ProductionTicketService:
             return None
         old = {"title": current.title, "description": current.description, "expected_delivery": str(current.expected_delivery), "priority": current.priority, "category": current.category}
         fields = payload.dict(exclude_unset=True)
+
+        if 'expected_delivery' in fields and fields['expected_delivery']:
+            dt = fields['expected_delivery']
+            if isinstance(dt, datetime) and dt.tzinfo is not None:
+                fields['expected_delivery'] = dt.replace(tzinfo=None)
+
         # status change via dedicated method
         if 'status' in fields:
             # defer to change_status to validate transitions
@@ -76,136 +94,76 @@ class ProductionTicketService:
             return None
         old_status = current.status
         new_status = payload.new_status
-        # Validate transition
-        allowed = ALLOWED_TRANSITIONS.get(old_status, [])
-        if new_status not in allowed:
-            raise ValueError(f"Invalid status transition: {old_status} -> {new_status}")
-        await self.repo.update(ticket_id, status=new_status, updated_at=datetime.utcnow())
-        # create timeline, activity, history
-        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='status_change', actor_id=actor_id, data=f'{old_status} -> {new_status}; reason: {payload.reason}'))
-        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='status_change', actor_id=actor_id, details=f'{old_status} -> {new_status}'))
+
+        # Update status
+        await self.repo.update_status(ticket_id, new_status)
+        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='status_change', actor_id=actor_id, data=f'{old_status} -> {new_status}; reason: {payload.reason or "No reason provided"}'))
+        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='status_change', actor_id=actor_id, details=f'Status changed from {old_status} to {new_status}'))
         await self.history_repo.create(TicketHistory(ticket_id=ticket_id, change_type='status_change', old_value=old_status, new_value=new_status, reason=payload.reason, changed_by=actor_id))
-        # placeholder notification: in real implementation, NotificationService publishes event
         return await self.repo.get(ticket_id)
-
-    async def add_comment(self, ticket_id: str, payload: CommentCreate, author_id: Optional[str] = None):
-        comment = TicketComment(ticket_id=ticket_id, author_id=author_id, content=payload.content)
-        created = await self.comment_repo.create(comment)
-        # attachments
-        if payload.attachments:
-            for a in payload.attachments:
-                await self.attachment_repo.create(TicketAttachment(ticket_id=ticket_id, uploader_id=author_id, comment_id=created.id, filename=a.get('filename'), url=a.get('url'), mime_type=a.get('mime_type')))
-        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='comment_created', actor_id=author_id, data=payload.content))
-        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='comment', actor_id=author_id, details=payload.content))
-        return created
-
-    async def assign(self, ticket_id: str, payload: AssignmentCreate, assigned_by: Optional[str] = None):
-        current = await self.repo.get(ticket_id)
-        if not current:
-            return []
-        created_items = []
-        for aid in payload.assignee_ids:
-            assign = TicketAssignment(ticket_id=ticket_id, assignee_id=aid, assigned_by=assigned_by)
-            created = await self.assign_repo.create(assign)
-            created_items.append(created)
-            await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='assigned', actor_id=assigned_by, data=str(aid)))
-            await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='assign', actor_id=assigned_by, details=str(aid)))
-            await self.history_repo.create(TicketHistory(ticket_id=ticket_id, change_type='assignment', old_value=None, new_value=str(aid), changed_by=assigned_by))
-        current = await self.repo.get(ticket_id)
-        if current and current.status == 'Draft':
-            await self.change_status(ticket_id, StatusChangeRequest(new_status='Review', reason='Moved to review before assignment'), actor_id=assigned_by)
-            current = await self.repo.get(ticket_id)
-        if current and current.status == 'Review':
-            await self.change_status(ticket_id, StatusChangeRequest(new_status='Assigned', reason='Karigar assigned'), actor_id=assigned_by)
-        return created_items
-
-    async def accept_assignment(self, ticket_id: str, karigar_id: str):
-        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
-        if not assignment:
-            return None
-        await self.assign_repo.accept(assignment.id)
-        current = await self.repo.get(ticket_id)
-        if current and current.status == 'Assigned':
-            await self.change_status(ticket_id, StatusChangeRequest(new_status='Accepted', reason='Karigar accepted work'), actor_id=karigar_id)
-        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='karigar_accepted', actor_id=karigar_id, data='Accepted assigned work'))
-        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='karigar_accept', actor_id=karigar_id, details='Accepted assigned work'))
-        return await self.repo.get(ticket_id)
-
-    async def reject_assignment(self, ticket_id: str, karigar_id: str, reason: Optional[str] = None):
-        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
-        if not assignment:
-            return None
-        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='karigar_rejected', actor_id=karigar_id, data=reason or 'Rejected assigned work'))
-        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='karigar_reject', actor_id=karigar_id, details=reason or 'Rejected assigned work'))
-        await self.history_repo.create(TicketHistory(ticket_id=ticket_id, change_type='assignment_rejected', old_value='Assigned', new_value='Rejected by karigar', reason=reason, changed_by=karigar_id))
-        return await self.repo.get(ticket_id)
-
-    async def start_work(self, ticket_id: str, karigar_id: str):
-        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
-        if not assignment:
-            return None
-        current = await self.repo.get(ticket_id)
-        if current and current.status == 'Accepted':
-            return await self.change_status(ticket_id, StatusChangeRequest(new_status='Production', reason='Karigar started work'), actor_id=karigar_id)
-        return current
-
-    async def complete_work(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
-        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
-        if not assignment:
-            return None
-        current = await self.repo.get(ticket_id)
-        if current and current.status == 'Production':
-            return await self.change_status(ticket_id, StatusChangeRequest(new_status='Quality Check', reason=note or 'Karigar marked work complete'), actor_id=karigar_id)
-        return current
-
-    async def add_attachment(self, ticket_id: str, filename: str, url: str, uploader_id: Optional[str] = None):
-        att = TicketAttachment(ticket_id=ticket_id, uploader_id=uploader_id, filename=filename, url=url)
-        created = await self.attachment_repo.create(att)
-        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='attachment_added', actor_id=uploader_id, data=filename))
-        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='attachment', actor_id=uploader_id, details=filename))
-        return created
-
-    # tags
-    async def add_tag(self, ticket_id: str, name: str):
-        return await self.repo.add_tag(ticket_id, name)
-
-    async def remove_tag(self, ticket_id: str, name: str):
-        return await self.repo.remove_tag(ticket_id, name)
-
-    # watchers
-    async def add_watcher(self, ticket_id: str, user_id: str):
-        return await self.repo.add_watcher(ticket_id, user_id)
-
-    async def remove_watcher(self, ticket_id: str, user_id: str):
-        return await self.repo.remove_watcher(ticket_id, user_id)
-
-    # dependencies
-    async def add_dependency(self, ticket_id: str, depends_on_id: str):
-        return await self.repo.add_dependency(ticket_id, depends_on_id)
 
     async def list_timeline(self, ticket_id: str):
-        return await self.timeline_repo.list(ticket_id)
-
-    async def list_comments(self, ticket_id: str):
-        return await self.comment_repo.list(ticket_id)
-
-    async def list_attachments(self, ticket_id: str):
-        return await self.attachment_repo.list(ticket_id)
+        return await self.repo.list_timeline(ticket_id)
 
     async def list_history(self, ticket_id: str):
-        return await self.history_repo.list(ticket_id)
+        return await self.repo.list_history(ticket_id)
 
-    async def list_assignments(self, ticket_id: str):
-        return await self.assign_repo.list(ticket_id)
+    async def assign_karigar(self, ticket_id: str, payload: AssignmentCreate, assigned_by: Optional[str] = None):
+        pt = await self.repo.get(ticket_id)
+        if not pt:
+            return None
+        res = await self.assign_repo.assign(ticket_id, payload.assignee_ids, assigned_by=assigned_by)
+        for uid in payload.assignee_ids:
+            await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='assigned', actor_id=assigned_by, data=str(uid)))
+            await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='assigned', actor_id=assigned_by, details=f'Assigned user {uid}'))
+            await self.history_repo.create(TicketHistory(ticket_id=ticket_id, change_type='assignment', old_value=None, new_value=str(uid), changed_by=assigned_by))
 
-    async def list_activity(self, ticket_id: str):
-        return await self.activity_repo.list(ticket_id)
+        # Auto-advance Draft -> Review -> Assigned
+        if pt.status in ['Draft', 'Review']:
+            if pt.status == 'Draft':
+                await self.change_status(ticket_id, StatusChangeRequest(new_status='Review', reason='Moved to review before assignment'), actor_id=assigned_by)
+            await self.change_status(ticket_id, StatusChangeRequest(new_status='Assigned', reason='Karigar assigned'), actor_id=assigned_by)
 
-    async def list_tags(self, ticket_id: str):
-        return await self.repo.list_tags(ticket_id)
+        return res
 
-    async def list_watchers(self, ticket_id: str):
-        return await self.repo.list_watchers(ticket_id)
+    async def karigar_accept(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
+        pt = await self.repo.get(ticket_id)
+        if not pt:
+            raise ValueError("Ticket not found")
+        await self.assign_repo.accept(ticket_id, karigar_id)
+        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='karigar_accepted', actor_id=karigar_id, data=note or 'Accepted assigned work'))
+        if pt.status == 'Assigned':
+            await self.change_status(ticket_id, StatusChangeRequest(new_status='Accepted', reason=note or 'Karigar accepted work'), actor_id=karigar_id)
+        return await self.repo.get(ticket_id)
 
-    async def list_dependencies(self, ticket_id: str):
-        return await self.repo.list_dependencies(ticket_id)
+    async def karigar_reject(self, ticket_id: str, karigar_id: str, reason: Optional[str] = None):
+        pt = await self.repo.get(ticket_id)
+        if not pt:
+            raise ValueError("Ticket not found")
+        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='karigar_rejected', actor_id=karigar_id, data=reason or 'Rejected assigned work'))
+        await self.history_repo.create(TicketHistory(ticket_id=ticket_id, change_type='karigar_rejected', old_value=pt.status, new_value='Rejected', reason=reason, changed_by=karigar_id))
+        return pt
+
+    async def karigar_start_work(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
+        pt = await self.repo.get(ticket_id)
+        if not pt:
+            raise ValueError("Ticket not found")
+        if pt.status == 'Accepted':
+            await self.change_status(ticket_id, StatusChangeRequest(new_status='Production', reason=note or 'Karigar started work'), actor_id=karigar_id)
+        return await self.repo.get(ticket_id)
+
+    async def karigar_complete_work(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
+        pt = await self.repo.get(ticket_id)
+        if not pt:
+            raise ValueError("Ticket not found")
+        if pt.status == 'Production':
+            await self.change_status(ticket_id, StatusChangeRequest(new_status='Quality Check', reason=note or 'Karigar completed work'), actor_id=karigar_id)
+        return await self.repo.get(ticket_id)
+
+    async def owner_ping(self, ticket_id: str, owner_id: str):
+        pt = await self.repo.get(ticket_id)
+        if not pt:
+            raise ValueError("Ticket not found")
+        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='owner_ping', actor_id=owner_id, data='Owner pinged karigar for status update'))
+        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='ping', actor_id=owner_id, details='Ping sent to karigar'))
+        return pt

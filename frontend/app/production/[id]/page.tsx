@@ -448,9 +448,9 @@ export default function ProductionDetail() {
 
       {/* ── Overview Tab ── */}
       {activeTab === 'Overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 340px', gap: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 320px', gap: 14 }}>
           {/* Main Left Section: Specifications & Reference Image */}
-          <div className="d-flex flex-column gap-4">
+          <div className="d-flex flex-column gap-3">
 
             {/* Design Reference Photo Header (if present) */}
             {primaryImage && (
@@ -487,28 +487,28 @@ export default function ProductionDetail() {
               </div>
 
               {/* Specs Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                <div style={{ background: 'var(--bg-subtle)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                   <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Category</div>
-                  <div className="fw-semibold mt-1" style={{ fontSize: 15 }}>{categoryIcon(pt.category)} {pt.category || '—'}</div>
+                  <div className="fw-semibold mt-1" style={{ fontSize: 14 }}>{categoryIcon(pt.category)} {pt.category || '—'}</div>
                 </div>
 
-                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <div style={{ background: 'var(--bg-subtle)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                   <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Priority</div>
                   <div className="mt-1">{pt.priority ? <PriorityBadge priority={pt.priority} /> : '—'}</div>
                 </div>
 
-                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <div style={{ background: 'var(--bg-subtle)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                   <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Expected Delivery</div>
-                  <div className="fw-semibold mt-1" style={{ fontSize: 14, color: 'var(--brand-gold)' }}>📅 {formatDate(pt.expected_delivery)}</div>
+                  <div className="fw-semibold mt-1" style={{ fontSize: 13, color: 'var(--brand-gold)' }}>📅 {formatDate(pt.expected_delivery)}</div>
                 </div>
 
-                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <div style={{ background: 'var(--bg-subtle)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                   <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Created Date</div>
                   <div className="fw-semibold mt-1" style={{ fontSize: 13 }}>{formatDateTime(pt.created_at)}</div>
                 </div>
 
-                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <div style={{ background: 'var(--bg-subtle)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                   <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Last Updated</div>
                   <div className="fw-semibold mt-1" style={{ fontSize: 13 }}>{formatDateTime(pt.updated_at)}</div>
                 </div>
@@ -517,7 +517,7 @@ export default function ProductionDetail() {
           </div>
 
           {/* Right Sidebar: Status & Assignment Controls */}
-          <div className="d-flex flex-column gap-4">
+          <div className="d-flex flex-column gap-3">
             <div className="panel" style={{ borderRadius: 12, border: '1px solid var(--border-gold)' }}>
               <div className="panel-title mb-3" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>
                 📋 Workflow & Status
