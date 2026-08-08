@@ -167,3 +167,19 @@ class ProductionTicketService:
         await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='owner_ping', actor_id=owner_id, data='Owner pinged karigar for status update'))
         await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='ping', actor_id=owner_id, details='Ping sent to karigar'))
         return pt
+
+    # Router compatibility aliases
+    async def assign(self, ticket_id: str, payload: AssignmentCreate, assigned_by: Optional[str] = None):
+        return await self.assign_karigar(ticket_id, payload, assigned_by=assigned_by)
+
+    async def accept_assignment(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
+        return await self.karigar_accept(ticket_id, karigar_id, note=note)
+
+    async def reject_assignment(self, ticket_id: str, karigar_id: str, reason: Optional[str] = None):
+        return await self.karigar_reject(ticket_id, karigar_id, reason=reason)
+
+    async def start_work(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
+        return await self.karigar_start_work(ticket_id, karigar_id, note=note)
+
+    async def complete_work(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
+        return await self.karigar_complete_work(ticket_id, karigar_id, note=note)

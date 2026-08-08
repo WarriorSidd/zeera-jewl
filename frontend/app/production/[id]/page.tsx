@@ -448,7 +448,7 @@ export default function ProductionDetail() {
 
       {/* ── Overview Tab ── */}
       {activeTab === 'Overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 320px', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16, maxWidth: 1000 }}>
           {/* Main Left Section: Specifications & Reference Image */}
           <div className="d-flex flex-column gap-3">
 

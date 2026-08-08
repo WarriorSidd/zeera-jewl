@@ -170,7 +170,7 @@ class AssignmentRepository:
         )
         return q.scalars().first()
 
-    async def assign(self, ticket_id: str, assignee_ids: list[str], assigned_by: Optional[str] = None):
+    async def assign(self, ticket_id: str, assignee_ids: List[str], assigned_by: Optional[str] = None):
         assignments = []
         for uid in assignee_ids:
             existing = await self.get_for_assignee(ticket_id, uid)
