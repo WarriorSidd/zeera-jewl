@@ -2,7 +2,8 @@ import os
 import logging
 import traceback
 from datetime import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from . import auth, models
 from .database import sync_engine, Base
@@ -15,6 +16,14 @@ except Exception as e:
 
 app = FastAPI(title="zjewl PT Backend", version="v1")
 
+# Allow all origins for seamless cross-origin requests from Vercel & mobile
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Ensure logs dir exists
 try:
@@ -34,7 +43,7 @@ except Exception:
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
+async def global_exception_handler(request: Request, exc: Exception):
     tb = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
     logging.error(f"Unhandled exception for {request.method} {request.url}\n{tb}")
     try:
@@ -42,21 +51,12 @@ async def global_exception_handler(request, exc):
             f.write(f"{datetime.utcnow().isoformat()} {request.method} {request.url}\n{tb}\n---\n")
     except Exception:
         pass
-    raise exc
+    # Return JSONResponse instead of raising, ensuring CORS headers are always attached even on 500 errors
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"},
+    )
 
-
-# CORS configuration — supports Vercel preview & production deployments + localhost
-raw_origins = os.getenv("FRONTEND_ORIGINS", "")
-custom_origins = [o.strip() for o in raw_origins.split(",") if o.strip() and o.strip() != "*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=custom_origins if custom_origins else ["*"],
-    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ──── Routers ────────────────────────────────────────────────────────────────
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
