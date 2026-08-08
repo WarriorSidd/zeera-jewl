@@ -17,6 +17,58 @@ export const CATEGORIES = [
 
 export const PRIORITIES = ['Low', 'Medium', 'High', 'Critical']
 
+export const MANAGER_ROLES = ['owner', 'admin', 'production_manager', 'office', 'qc']
+export const KARIGAR_ROLE = 'karigar'
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+export type CurrentUser = {
+  id: string
+  username: string
+  full_name?: string
+  role: string
+  is_active: boolean
+}
+
+export function getStoredUser(): CurrentUser | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem('currentUser')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function storeUser(user: CurrentUser) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('currentUser', JSON.stringify(user))
+    localStorage.setItem('username', user.username)
+  }
+}
+
+export function clearAuth() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('token')
+    localStorage.removeItem('username')
+    localStorage.removeItem('currentUser')
+  }
+}
+
+export function isManager(user: CurrentUser | null): boolean {
+  return !!user && MANAGER_ROLES.includes(user.role)
+}
+
+export function isKarigar(user: CurrentUser | null): boolean {
+  return !!user && user.role === KARIGAR_ROLE
+}
+
+export function isOwnerOrAdmin(user: CurrentUser | null): boolean {
+  return !!user && (user.role === 'owner' || user.role === 'admin')
+}
+
+// ── Style helpers ─────────────────────────────────────────────────────────────
+
 export function statusClass(status: string): string {
   const map: Record<string, string> = {
     'Draft': 'status-draft',
@@ -65,6 +117,8 @@ export function categoryEmoji(category?: string): string {
   return categoryIcon(category)
 }
 
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -86,6 +140,8 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
   return res.json()
 }
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
 
 export function formatDate(value?: string | null): string {
   if (!value) return '—'

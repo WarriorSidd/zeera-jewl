@@ -1,12 +1,14 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.future import select
+from sqlalchemy import update
 from .database import get_session
-from .models import User
+from .models import User, RoleEnum
 from .core.security import verify_password, get_password_hash, create_access_token, decode_token
-from .schemas import Token, UserCreate, UserRead
+from .schemas import Token, UserCreate, UserRead, UserCreateByOwner, UserListResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -51,10 +53,90 @@ async def read_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post('/register', response_model=UserRead)
-async def register(payload: UserCreate, session: AsyncSession = Depends(get_session)):
-    user = User(username=payload.username, full_name=payload.full_name, hashed_password=get_password_hash(payload.password))
+# ──────────────────────────────────────────────────────────────────────────────
+# User management — Owner / Admin only
+# ──────────────────────────────────────────────────────────────────────────────
+
+OWNER_ROLES = {RoleEnum.owner, RoleEnum.admin}
+
+
+def require_owner(user: User):
+    if user.role not in OWNER_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Owner or admin role required')
+
+
+@router.get('/users', response_model=UserListResponse)
+async def list_users(
+    role: Optional[str] = Query(default=None, description="Filter by role, e.g. karigar"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Owner/admin: list all users. Karigars may call this to get user info for assigned tickets."""
+    # Everyone logged in can see the user list (needed for assignments display names)
+    q = select(User)
+    if role:
+        try:
+            role_enum = RoleEnum(role)
+            q = q.where(User.role == role_enum)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f'Unknown role: {role}')
+    result = await session.execute(q.order_by(User.created_at))
+    users = result.scalars().all()
+    return {"items": [_user_to_dict(u) for u in users], "total": len(users)}
+
+
+@router.post('/users', response_model=UserRead, status_code=201)
+async def create_user(
+    payload: UserCreateByOwner,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Owner/admin: create a new user (karigar or any role)."""
+    require_owner(current_user)
+    # Check username uniqueness
+    existing = await session.execute(select(User).where(User.username == payload.username))
+    if existing.scalars().first():
+        raise HTTPException(status_code=409, detail='Username already taken')
+    try:
+        role = RoleEnum(payload.role) if payload.role else RoleEnum.karigar
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f'Unknown role: {payload.role}')
+    user = User(
+        username=payload.username,
+        full_name=payload.full_name,
+        role=role,
+        hashed_password=get_password_hash(payload.password),
+        is_active=True,
+    )
     session.add(user)
     await session.commit()
     await session.refresh(user)
     return user
+
+
+@router.patch('/users/{user_id}', response_model=UserRead)
+async def toggle_user(
+    user_id: str,
+    is_active: bool,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Owner/admin: activate or deactivate a user."""
+    require_owner(current_user)
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail='User not found')
+    await session.execute(update(User).where(User.id == user_id).values(is_active=is_active))
+    await session.commit()
+    return await session.get(User, user_id)
+
+
+def _user_to_dict(u: User) -> dict:
+    return {
+        "id": str(u.id),
+        "username": u.username,
+        "full_name": u.full_name,
+        "role": u.role.value if u.role else None,
+        "is_active": u.is_active,
+    }

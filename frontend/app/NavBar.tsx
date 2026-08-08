@@ -1,59 +1,67 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import CreateTicketModal from './components/CreateTicketModal'
 import ThemeToggle from './components/ThemeToggle'
+import { getStoredUser, isManager, isOwnerOrAdmin, clearAuth, CurrentUser } from './lib/api'
 
-const NAV_ITEMS = [
+const MANAGER_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: '💎' },
   { href: '/board', label: 'Production Board', icon: '📿' },
   { href: '/production', label: 'Production Tickets', icon: '💍' },
+]
+
+const KARIGAR_NAV_ITEMS = [
+  { href: '/production', label: 'My Assigned Work', icon: '🔨' },
 ]
 
 export default function NavBar() {
   const pathname = usePathname()
   const router = useRouter()
   const [modalOpen, setModalOpen] = useState(false)
-  const [username, setUsername] = useState('')
+  const [user, setUser] = useState<CurrentUser | null>(null)
 
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setUsername(localStorage.getItem('username') || '')
-    }
-  }, [])
-
-  function handleCreate(columnId: string | undefined, _title: string, _description?: string) {
-    router.push('/production')
-  }
+  useEffect(() => {
+    setUser(getStoredUser())
+  }, [pathname]) // re-read on navigation (covers post-login)
 
   // Hide sidebar on login page
   if (pathname === '/login') return null
 
   function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('username')
-    setUsername('')
+    clearAuth()
+    setUser(null)
     router.push('/login')
   }
+
+  const navItems = isManager(user) ? MANAGER_NAV_ITEMS : KARIGAR_NAV_ITEMS
+  const showCreateButton = isManager(user)
+  const showAdminLink = isOwnerOrAdmin(user)
+
+  const roleLabel = user?.role
+    ? user.role.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())
+    : ''
 
   return (
     <>
       <aside className="app-sidebar">
         <div className="sidebar-brand">
-<div className="brand-badge">ZJ</div>
+          <div className="brand-badge">ZJ</div>
           <div>
             zjewl
             <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>Production Platform</div>
           </div>
         </div>
 
-        <button className="btn btn-primary w-100 mb-3" onClick={() => setModalOpen(true)}>
-          + New Production Ticket
-        </button>
+        {showCreateButton && (
+          <button className="btn btn-primary w-100 mb-3" onClick={() => setModalOpen(true)}>
+            + New Production Ticket
+          </button>
+        )}
 
         <nav className="sidebar-nav">
           <div className="sidebar-section">Workspace</div>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <a
               key={item.href}
               href={item.href}
@@ -63,15 +71,33 @@ export default function NavBar() {
               {item.label}
             </a>
           ))}
+
+          {showAdminLink && (
+            <>
+              <div className="sidebar-section" style={{ marginTop: 12 }}>Admin</div>
+              <a
+                href="/admin/users"
+                className={`sidebar-link ${pathname === '/admin/users' ? 'active' : ''}`}
+              >
+                <span className="nav-icon">👥</span>
+                Manage Users
+              </a>
+            </>
+          )}
         </nav>
 
-<div style={{ marginTop: 'auto' }}>
+        <div style={{ marginTop: 'auto' }}>
           <div className="d-flex align-items-center justify-content-between p-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
             <ThemeToggle />
-            {username ? (
-              <div className="d-flex align-items-center gap-2">
-                <span className="text-secondary" style={{ fontSize: 13 }}>👤 {username}</span>
-                <button className="btn btn-ghost btn-sm" onClick={logout}>Logout</button>
+            {user ? (
+              <div className="d-flex flex-column align-items-end gap-1">
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>
+                  {roleLabel}
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="text-secondary" style={{ fontSize: 13 }}>👤 {user.full_name || user.username}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={logout}>Logout</button>
+                </div>
               </div>
             ) : (
               <a href="/login" className="sidebar-link" style={{ padding: '6px 10px' }}>
@@ -83,11 +109,13 @@ export default function NavBar() {
         </div>
       </aside>
 
-      <CreateTicketModal
-        show={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onCreate={handleCreate}
-      />
+      {showCreateButton && (
+        <CreateTicketModal
+          show={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onCreate={() => { setModalOpen(false); router.push('/production') }}
+        />
+      )}
     </>
   )
 }

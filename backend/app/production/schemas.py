@@ -73,6 +73,10 @@ class StatusChangeRequest(BaseModel):
     new_status: str
     reason: Optional[str] = Field(default=None)
 
+class KarigarActionRequest(BaseModel):
+    reason: Optional[str] = Field(default=None)
+    note: Optional[str] = Field(default=None)
+
 class TagCreate(BaseModel):
     name: str
 

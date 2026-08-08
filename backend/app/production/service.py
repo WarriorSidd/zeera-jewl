@@ -12,7 +12,7 @@ ALLOWED_TRANSITIONS = {
     'Review': ['Assigned', 'Draft'],
     'Assigned': ['Accepted', 'Review'],
     'Accepted': ['Production', 'Assigned'],
-    'Production': ['Stone Setting', 'Accepted'],
+    'Production': ['Stone Setting', 'Quality Check', 'Accepted'],
     'Stone Setting': ['Polishing'],
     'Polishing': ['Quality Check'],
     'Quality Check': ['Ready', 'Production'],
@@ -100,6 +100,9 @@ class ProductionTicketService:
         return created
 
     async def assign(self, ticket_id: str, payload: AssignmentCreate, assigned_by: Optional[str] = None):
+        current = await self.repo.get(ticket_id)
+        if not current:
+            return []
         created_items = []
         for aid in payload.assignee_ids:
             assign = TicketAssignment(ticket_id=ticket_id, assignee_id=aid, assigned_by=assigned_by)
@@ -108,7 +111,52 @@ class ProductionTicketService:
             await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='assigned', actor_id=assigned_by, data=str(aid)))
             await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='assign', actor_id=assigned_by, details=str(aid)))
             await self.history_repo.create(TicketHistory(ticket_id=ticket_id, change_type='assignment', old_value=None, new_value=str(aid), changed_by=assigned_by))
+        current = await self.repo.get(ticket_id)
+        if current and current.status == 'Draft':
+            await self.change_status(ticket_id, StatusChangeRequest(new_status='Review', reason='Moved to review before assignment'), actor_id=assigned_by)
+            current = await self.repo.get(ticket_id)
+        if current and current.status == 'Review':
+            await self.change_status(ticket_id, StatusChangeRequest(new_status='Assigned', reason='Karigar assigned'), actor_id=assigned_by)
         return created_items
+
+    async def accept_assignment(self, ticket_id: str, karigar_id: str):
+        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
+        if not assignment:
+            return None
+        await self.assign_repo.accept(assignment.id)
+        current = await self.repo.get(ticket_id)
+        if current and current.status == 'Assigned':
+            await self.change_status(ticket_id, StatusChangeRequest(new_status='Accepted', reason='Karigar accepted work'), actor_id=karigar_id)
+        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='karigar_accepted', actor_id=karigar_id, data='Accepted assigned work'))
+        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='karigar_accept', actor_id=karigar_id, details='Accepted assigned work'))
+        return await self.repo.get(ticket_id)
+
+    async def reject_assignment(self, ticket_id: str, karigar_id: str, reason: Optional[str] = None):
+        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
+        if not assignment:
+            return None
+        await self.timeline_repo.create(TicketTimeline(ticket_id=ticket_id, event_type='karigar_rejected', actor_id=karigar_id, data=reason or 'Rejected assigned work'))
+        await self.activity_repo.create(TicketActivity(ticket_id=ticket_id, activity_type='karigar_reject', actor_id=karigar_id, details=reason or 'Rejected assigned work'))
+        await self.history_repo.create(TicketHistory(ticket_id=ticket_id, change_type='assignment_rejected', old_value='Assigned', new_value='Rejected by karigar', reason=reason, changed_by=karigar_id))
+        return await self.repo.get(ticket_id)
+
+    async def start_work(self, ticket_id: str, karigar_id: str):
+        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
+        if not assignment:
+            return None
+        current = await self.repo.get(ticket_id)
+        if current and current.status == 'Accepted':
+            return await self.change_status(ticket_id, StatusChangeRequest(new_status='Production', reason='Karigar started work'), actor_id=karigar_id)
+        return current
+
+    async def complete_work(self, ticket_id: str, karigar_id: str, note: Optional[str] = None):
+        assignment = await self.assign_repo.get_for_assignee(ticket_id, karigar_id)
+        if not assignment:
+            return None
+        current = await self.repo.get(ticket_id)
+        if current and current.status == 'Production':
+            return await self.change_status(ticket_id, StatusChangeRequest(new_status='Quality Check', reason=note or 'Karigar marked work complete'), actor_id=karigar_id)
+        return current
 
     async def add_attachment(self, ticket_id: str, filename: str, url: str, uploader_id: Optional[str] = None):
         att = TicketAttachment(ticket_id=ticket_id, uploader_id=uploader_id, filename=filename, url=url)
