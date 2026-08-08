@@ -15,9 +15,15 @@ def can_manage_production(user: User) -> bool:
     return user.role in MANAGER_ROLES
 
 async def require_ticket_access(svc: ProductionTicketService, ticket_id: str, user: User):
-    if can_manage_production(user) or user.role == RoleEnum.karigar:
+    if can_manage_production(user):
         return
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not allowed to access this production ticket')
+    if user.role == RoleEnum.karigar:
+        if await svc.repo.is_assigned_to(ticket_id, str(user.id)):
+            return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail='Access denied: You can only view tickets that are assigned to you'
+    )
 
 def require_manager(user: User):
     if not can_manage_production(user):
