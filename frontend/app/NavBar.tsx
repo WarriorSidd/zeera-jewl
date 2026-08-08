@@ -110,7 +110,7 @@ export default function NavBar() {
               <div style={{
                 position: 'absolute', top: '105%', left: 0, right: 0, zIndex: 9999,
                 background: 'var(--bg-elevated)', border: '1px solid var(--border-gold)',
-                borderRadius: 10, boxShadow: 'var(--shadow-pop)', padding: 12, maxH: 280, overflowY: 'auto',
+                borderRadius: 10, boxShadow: 'var(--shadow-pop)', padding: 12, maxHeight: 280, overflowY: 'auto',
               }}>
                 <div className="fw-bold mb-2 pb-1" style={{ fontSize: 13, borderBottom: '1px solid var(--border-subtle)', color: 'var(--brand-gold)' }}>
                   {user.role === 'karigar' ? '🔨 Work Assigned to You' : '🔔 Pending Review Tickets'}

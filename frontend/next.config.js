@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: false,
+  transpilePackages: ['@dnd-kit/core', '@dnd-kit/sortable', 'recharts'],
 }
 
 module.exports = nextConfig

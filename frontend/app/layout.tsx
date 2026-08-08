@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import NavBar from './NavBar'
 
 export const metadata: Metadata = {
-title: 'zjewl — Production Ticket Platform',
+  title: 'zjewl - Production Ticket Platform',
   description: 'Jewelry Manufacturing Workflow Platform',
 }
 
