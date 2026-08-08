@@ -10,12 +10,12 @@ load_dotenv()
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql+asyncpg://postgres:postgres@localhost:5432/zjewl_db')
 
-# ── Async engine (used at runtime) ──────────────────────────────────────────
 
-def _build_async_engine():
-    url = DATABASE_URL
+def _sanitize_url_for_asyncpg(raw_url: str) -> tuple[str, bool]:
+    is_ssl_required = 'neon.tech' in raw_url or 'sslmode=' in raw_url or 'ssl=' in raw_url
+    url = raw_url
 
-    # Ensure scheme uses +asyncpg driver regardless of how DATABASE_URL was entered
+    # Ensure scheme uses +asyncpg driver
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
@@ -23,16 +23,31 @@ def _build_async_engine():
     elif url.startswith("sqlite://"):
         url = url.replace("sqlite://", "sqlite+aiosqlite://", 1)
 
+    # Strip all query parameters from URL path so database name is clean (e.g. /neondb)
+    url = re.sub(r'[\?&].*$', '', url)
+    return url, is_ssl_required
+
+
+def _sanitize_url_for_psycopg2(raw_url: str) -> str:
+    url = raw_url
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    url = re.sub(r'[\?&].*$', '', url)
+    return url
+
+
+# ── Async engine (used at runtime) ──────────────────────────────────────────
+
+def _build_async_engine():
+    url, is_ssl_required = _sanitize_url_for_asyncpg(DATABASE_URL)
     kwargs: dict = {"future": True, "pool_pre_ping": True}
 
-    # asyncpg does not accept sslmode= in the URL; extract it and pass ssl context instead
-    if 'sslmode=' in url:
-        url = re.sub(r'[?&]sslmode=[^&]+', '', url)
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        kwargs["connect_args"] = {"ssl": ctx}
-    elif 'neon.tech' in url:
+    if is_ssl_required:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -47,23 +62,12 @@ async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession
 # ── Sync engine (used only for create_all in dev) ───────────────────────────
 
 def _build_sync_engine():
-    url = DATABASE_URL
-
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
-    elif url.startswith("postgresql+asyncpg://"):
-        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
-    elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
-        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
-
-    if 'sslmode=' in url:
-        url = re.sub(r'[?&]sslmode=[^&]+', '', url)
-
+    url = _sanitize_url_for_psycopg2(DATABASE_URL)
     return create_engine(
         url,
         future=True,
         pool_pre_ping=True,
-        connect_args={"sslmode": "require"} if 'neon.tech' in url else {},
+        connect_args={"sslmode": "require"} if 'neon.tech' in DATABASE_URL or 'sslmode=' in DATABASE_URL else {},
     )
 
 
