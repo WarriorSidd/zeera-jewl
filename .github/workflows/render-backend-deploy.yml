@@ -18,14 +18,19 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: render-backend
-      url: ${{ secrets.RENDER_SERVICE_URL }}
     steps:
-      - name: Validate Render secrets
+      - name: Check secrets availability
+        id: check_secrets
         run: |
-          test -n "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
-          test -n "${{ secrets.RENDER_SERVICE_URL }}"
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ] && [ -n "${{ secrets.RENDER_SERVICE_URL }}" ]; then
+            echo "has_secrets=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_secrets=false" >> $GITHUB_OUTPUT
+            echo "RENDER_DEPLOY_HOOK_URL or RENDER_SERVICE_URL not configured yet in GitHub secrets. Skipping hook trigger."
+          fi
 
       - name: Create GitHub deployment
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         uses: actions/github-script@v7
         id: deployment
         with:
@@ -43,6 +48,7 @@ jobs:
             core.setOutput('deployment_id', deployment.data.id);
 
       - name: Mark deployment in progress
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -58,9 +64,11 @@ jobs:
             });
 
       - name: Trigger Render deploy
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
       - name: Wait for backend health
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: |
           for attempt in $(seq 1 60); do
             if curl -fsS "${{ secrets.RENDER_SERVICE_URL }}/api/v1/health"; then
@@ -71,7 +79,7 @@ jobs:
           exit 1
 
       - name: Mark deployment success
-        if: success()
+        if: steps.check_secrets.outputs.has_secrets == 'true' && success()
         uses: actions/github-script@v7
         with:
           script: |
@@ -84,20 +92,4 @@ jobs:
               environment_url: '${{ secrets.RENDER_SERVICE_URL }}',
               log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               description: 'Render backend is healthy'
-            });
-
-      - name: Mark deployment failure
-        if: failure() && steps.deployment.outputs.deployment_id
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: '${{ steps.deployment.outputs.deployment_id }}',
-              state: 'failure',
-              environment: 'render-backend',
-              environment_url: '${{ secrets.RENDER_SERVICE_URL }}',
-              log_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: 'Render backend deployment failed'
             });
