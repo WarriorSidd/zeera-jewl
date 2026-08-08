@@ -38,6 +38,9 @@ class ProductionTicketRepository:
         await self.session.commit()
         return await self.get(ticket_id)
 
+    async def update_status(self, ticket_id: str, status: str) -> Optional[ProductionTicket]:
+        return await self.update(ticket_id, status=status, updated_at=datetime.utcnow())
+
     async def delete(self, ticket_id: str):
         await self.session.execute(delete(ProductionTicket).where(ProductionTicket.id == ticket_id))
         await self.session.commit()
