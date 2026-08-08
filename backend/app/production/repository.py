@@ -170,13 +170,39 @@ class AssignmentRepository:
         )
         return q.scalars().first()
 
-    async def accept(self, assignment_id: str):
-        await self.session.execute(
-            update(TicketAssignment)
-            .where(TicketAssignment.id == assignment_id)
-            .values(accepted=True, accepted_at=datetime.utcnow())
-        )
+    async def assign(self, ticket_id: str, assignee_ids: list[str], assigned_by: Optional[str] = None):
+        assignments = []
+        for uid in assignee_ids:
+            existing = await self.get_for_assignee(ticket_id, uid)
+            if not existing:
+                a = TicketAssignment(
+                    ticket_id=ticket_id,
+                    assignee_id=uid,
+                    assigned_by=assigned_by,
+                    accepted=False
+                )
+                self.session.add(a)
+                assignments.append(a)
         await self.session.commit()
+        for a in assignments:
+            await self.session.refresh(a)
+        return assignments
+
+    async def accept(self, ticket_id_or_assignment_id: str, assignee_id: Optional[str] = None):
+        if assignee_id:
+            a = await self.get_for_assignee(ticket_id_or_assignment_id, assignee_id)
+            if a:
+                a.accepted = True
+                a.accepted_at = datetime.utcnow()
+                await self.session.commit()
+                return a
+        else:
+            await self.session.execute(
+                update(TicketAssignment)
+                .where(TicketAssignment.id == ticket_id_or_assignment_id)
+                .values(accepted=True, accepted_at=datetime.utcnow())
+            )
+            await self.session.commit()
 
 
 class TimelineRepository:

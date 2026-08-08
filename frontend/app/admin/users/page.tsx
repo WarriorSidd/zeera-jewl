@@ -65,7 +65,7 @@ export default function AdminUsersPage() {
           role: newRole,
         }),
       })
-      setMsg({ type: 'ok', text: `Account created: ${newUsername} (${newRole})` })
+      setMsg({ type: 'ok', text: `Account created successfully: ${newUsername} (${newRole})` })
       setNewUsername('')
       setNewPassword('')
       setNewFullName('')
@@ -102,31 +102,38 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 40 }}>
+      <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <h2 className="mb-1">👥 User Management</h2>
-          <div className="text-muted" style={{ fontSize: 14 }}>Create karigar accounts and manage access</div>
+          <h2 className="mb-1" style={{ fontFamily: 'var(--font-serif)', color: 'var(--text-main)' }}>
+            👥 User Management
+          </h2>
+          <div className="text-muted" style={{ fontSize: 14 }}>
+            Create karigar accounts, manage roles, and control active access
+          </div>
         </div>
       </div>
 
       {msg && (
         <div className="mb-3" style={{
-          padding: '10px 14px', borderRadius: 8, fontSize: 14, fontWeight: 600,
+          padding: '12px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600,
           background: msg.type === 'ok' ? '#dcfce7' : '#fee2e2',
           color: msg.type === 'ok' ? '#15803d' : '#b91c1c',
+          border: `1px solid ${msg.type === 'ok' ? '#86efac' : '#fca5a5'}`,
         }}>
           {msg.text}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        {/* Create user form */}
-        <div className="panel" style={{ flex: '0 0 340px' }}>
-          <div className="panel-title">➕ Create New Account</div>
-          <form onSubmit={createUser} className="d-flex flex-column gap-3">
+      {/* ── Top Full-Width Card: Create New Account ── */}
+      <div className="panel mb-4" style={{ borderRadius: 12, border: '1px solid var(--border-gold)' }}>
+        <div className="panel-title mb-3" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 10 }}>
+          ➕ Create New User Account
+        </div>
+        <form onSubmit={createUser}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }} className="align-items-end">
             <div>
-              <label className="form-label">Username *</label>
+              <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Username *</label>
               <input
                 id="new-username"
                 className="form-control"
@@ -136,8 +143,9 @@ export default function AdminUsersPage() {
                 required
               />
             </div>
+
             <div>
-              <label className="form-label">Full Name</label>
+              <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Full Name</label>
               <input
                 id="new-fullname"
                 className="form-control"
@@ -146,8 +154,9 @@ export default function AdminUsersPage() {
                 onChange={e => setNewFullName(e.target.value)}
               />
             </div>
+
             <div>
-              <label className="form-label">Password *</label>
+              <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Password *</label>
               <input
                 id="new-password"
                 type="password"
@@ -159,8 +168,9 @@ export default function AdminUsersPage() {
                 minLength={6}
               />
             </div>
+
             <div>
-              <label className="form-label">Role *</label>
+              <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Role *</label>
               <select
                 id="new-role"
                 className="form-select"
@@ -172,74 +182,82 @@ export default function AdminUsersPage() {
                 ))}
               </select>
             </div>
-            <button
-              id="btn-create-user"
-              type="submit"
-              className="btn btn-primary"
-              disabled={creating || !newUsername || !newPassword}
-            >
-              {creating ? 'Creating…' : 'Create Account'}
-            </button>
-          </form>
-        </div>
 
-        {/* Users table */}
-        <div className="panel" style={{ flex: '1 1 400px' }}>
-          <div className="panel-title">All Users ({users.length})</div>
-          {loading ? (
-            <div>{[1,2,3].map(i => <div key={i} className="skeleton mb-2" style={{ height: 48 }} />)}</div>
-          ) : error ? (
-            <div style={{ color: '#dc2626' }}>{error}</div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(u => (
-                    <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{u.full_name || u.username}</div>
-                        <div className="text-muted" style={{ fontSize: 12 }}>@{u.username}</div>
-                      </td>
-                      <td>
-                        <span style={{
-                          background: roleBadgeColor(u.role), color: '#fff',
-                          padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-                        }}>
-                          {u.role.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{
-                          color: u.is_active ? '#15803d' : '#b91c1c',
-                          fontWeight: 600, fontSize: 13,
-                        }}>
-                          {u.is_active ? '● Active' : '○ Inactive'}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => toggleActive(u)}
-                          style={{ fontSize: 12, color: u.is_active ? '#b91c1c' : '#15803d' }}
-                        >
-                          {u.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div>
+              <button
+                id="btn-create-user"
+                type="submit"
+                className="btn btn-primary w-100"
+                disabled={creating || !newUsername || !newPassword}
+                style={{ padding: '9px 16px', fontWeight: 600 }}
+              >
+                {creating ? 'Creating…' : '➕ Create Account'}
+              </button>
             </div>
-          )}
+          </div>
+        </form>
+      </div>
+
+      {/* ── Bottom Full-Width Table: All Users ── */}
+      <div className="panel" style={{ borderRadius: 12 }}>
+        <div className="panel-title mb-3" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 10 }}>
+          📋 All Platform Users ({users.length})
         </div>
+        {loading ? (
+          <div>{[1, 2, 3].map(i => <div key={i} className="skeleton mb-2" style={{ height: 48, borderRadius: 8 }} />)}</div>
+        ) : error ? (
+          <div style={{ color: '#dc2626', padding: 12 }}>{error}</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>User Details</th>
+                  <th>Role</th>
+                  <th>Account Status</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
+                    <td>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>👤 {u.full_name || u.username}</div>
+                      <div className="text-muted" style={{ fontSize: 12 }}>@{u.username}</div>
+                    </td>
+                    <td>
+                      <span style={{
+                        background: roleBadgeColor(u.role), color: '#fff',
+                        padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
+                      }}>
+                        {u.role.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{
+                        color: u.is_active ? '#15803d' : '#b91c1c',
+                        background: u.is_active ? '#dcfce7' : '#fee2e2',
+                        padding: '4px 10px', borderRadius: 12,
+                        fontWeight: 700, fontSize: 12, display: 'inline-block',
+                      }}>
+                        {u.is_active ? '● Active' : '○ Inactive'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        className={`btn btn-sm ${u.is_active ? 'btn-secondary' : 'btn-primary'}`}
+                        onClick={() => toggleActive(u)}
+                        style={{ fontSize: 12, padding: '4px 12px' }}
+                      >
+                        {u.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

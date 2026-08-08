@@ -321,33 +321,33 @@ export default function ProductionDetail() {
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 60 }}>
       {/* Top Header Card */}
-      <div className="panel mb-4" style={{
+      <div className="panel mb-2" style={{
         background: 'var(--bg-elevated)',
         border: '1px solid var(--border-gold)',
         boxShadow: 'var(--shadow-pop)',
         borderRadius: 12,
-        padding: '20px 24px',
+        padding: '12px 18px',
       }}>
-        <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div>
             <div className="d-flex align-items-center gap-2 mb-1">
-              <span className="font-mono fw-bold" style={{ color: 'var(--brand-gold)', fontSize: 14, letterSpacing: '0.05em' }}>
+              <span className="font-mono fw-bold" style={{ color: 'var(--brand-gold)', fontSize: 13, letterSpacing: '0.05em' }}>
                 {pt.ticket_number}
               </span>
-              <span style={{ fontSize: 24, filter: 'drop-shadow(0 0 6px rgba(230,196,88,0.4))' }}>
+              <span style={{ fontSize: 20 }}>
                 {categoryIcon(pt.category)}
               </span>
             </div>
-            <h2 className="mb-2" style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--text-main)' }}>
+            <h3 className="mb-1" style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--text-main)', fontSize: 22 }}>
               {pt.title || 'Untitled Production Ticket'}
-            </h2>
+            </h3>
             <div className="d-flex gap-2 align-items-center flex-wrap">
               <StatusBadge status={pt.status} />
               {pt.priority && <PriorityBadge priority={pt.priority} />}
               {pt.category && <span className="tag" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>{pt.category}</span>}
             </div>
           </div>
-          <Link href="/production" className="btn btn-secondary btn-sm" style={{ padding: '6px 14px', borderRadius: 8 }}>
+          <Link href="/production" className="btn btn-secondary btn-sm" style={{ padding: '5px 12px', borderRadius: 6, fontSize: 13 }}>
             ← Back to Tickets
           </Link>
         </div>
@@ -355,8 +355,8 @@ export default function ProductionDetail() {
 
       {/* Global message banner */}
       {statusMsg && (
-        <div className="mb-4" style={{
-          padding: '12px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600,
+        <div className="mb-2" style={{
+          padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
           background: statusMsg.type === 'ok' ? '#dcfce7' : '#fee2e2',
           color: statusMsg.type === 'ok' ? '#15803d' : '#b91c1c',
           border: `1px solid ${statusMsg.type === 'ok' ? '#86efac' : '#fca5a5'}`,
@@ -438,7 +438,7 @@ export default function ProductionDetail() {
       )}
 
       {/* Navigation Tabs */}
-      <div className="tabs mb-4">
+      <div className="tabs mb-2">
         {TABS.map((t) => (
           <button key={t} className={`tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
             {t} {t === 'Attachments' && attachments.length > 0 && `(${attachments.length})`}
