@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { StatusBadge, PriorityBadge } from '../../components/StatusBadge'
 import {
   apiFetch, STATUS_OPTIONS, formatDate, formatDateTime, categoryIcon,
-  getStoredUser, isManager, isKarigar, isOwnerOrAdmin, CurrentUser,
+  getStoredUser, isManager, isKarigar, CurrentUser,
 } from '../../lib/api'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -86,8 +86,6 @@ function eventIcon(type: string) {
   return map[type] || '•'
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
-
 export default function ProductionDetail() {
   const params = useParams()
   const id = params?.id as string
@@ -105,24 +103,24 @@ export default function ProductionDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Status change (manager)
+  // Manager Status
   const [newStatus, setNewStatus] = useState('')
   const [statusMsg, setStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  // Comment
+  // Comments
   const [newComment, setNewComment] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
 
-  // Assignment (manager)
+  // Assignment
   const [assigneeId, setAssigneeId] = useState('')
   const [assigning, setAssigning] = useState(false)
 
-  // Attachment (URL-based)
+  // Attachments
   const [attachUrl, setAttachUrl] = useState('')
   const [attachName, setAttachName] = useState('')
   const [addingAttach, setAddingAttach] = useState(false)
 
-  // Karigar action
+  // Karigar Action
   const [karigarActionMsg, setKarigarActionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [karigarNote, setKarigarNote] = useState('')
 
@@ -158,7 +156,6 @@ export default function ProductionDetail() {
     }
   }, [id])
 
-  // Load karigars for assignment dropdown (managers only)
   const loadKarigars = useCallback(async () => {
     try {
       const data = await apiFetch<{ items: UserInfo[]; total: number }>('/api/v1/auth/users?role=karigar')
@@ -179,11 +176,9 @@ export default function ProductionDetail() {
     loadKarigars()
   }, [loadAll, loadKarigars])
 
-  // ── Helper: resolve user display name ──────────────────────────────────────
-
   function userName(userId?: string): string {
     if (!userId) return '—'
-    const u = allUsers.find(u => u.id === userId)
+    const u = allUsers.find((user) => user.id === userId)
     return u ? (u.full_name || u.username) : userId.slice(0, 8) + '…'
   }
 
@@ -293,10 +288,8 @@ export default function ProductionDetail() {
     }
   }
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-
   const myAssignment = isKarigar(currentUser)
-    ? assignments.find(a => a.assignee_id === currentUser?.id)
+    ? assignments.find((a) => a.assignee_id === currentUser?.id)
     : null
 
   const canAccept = isKarigar(currentUser) && pt?.status === 'Assigned' && myAssignment && !myAssignment.accepted
@@ -304,69 +297,90 @@ export default function ProductionDetail() {
   const canStart = isKarigar(currentUser) && pt?.status === 'Accepted' && myAssignment
   const canComplete = isKarigar(currentUser) && pt?.status === 'Production' && myAssignment
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const primaryImage = attachments.length > 0 ? attachments[0] : null
 
   if (loading) {
     return (
-      <div>
-        <div className="skeleton" style={{ height: 40, width: 300 }} />
-        <div className="skeleton mt-3" style={{ height: 200 }} />
+      <div style={{ padding: 24 }}>
+        <div className="skeleton" style={{ height: 48, width: 320, marginBottom: 16 }} />
+        <div className="skeleton" style={{ height: 260, borderRadius: 12 }} />
       </div>
     )
   }
 
   if (!pt) {
     return (
-      <div className="empty-state">
-        <div className="empty-icon">⚠️</div>
-        <div>{error || 'Production ticket not found.'}</div>
-        <Link href="/production" className="btn btn-primary mt-3">Back to list</Link>
+      <div className="empty-state" style={{ padding: 40, textAlign: 'center' }}>
+        <div className="empty-icon" style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>{error || 'Production ticket not found.'}</div>
+        <Link href="/production" className="btn btn-primary mt-3">← Back to Production List</Link>
       </div>
     )
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
-        <div>
-          <div className="font-mono fw-semibold" style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-            {pt.ticket_number}
+    <div style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 60 }}>
+      {/* Top Header Card */}
+      <div className="panel mb-4" style={{
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border-gold)',
+        boxShadow: 'var(--shadow-pop)',
+        borderRadius: 12,
+        padding: '20px 24px',
+      }}>
+        <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
+          <div>
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <span className="font-mono fw-bold" style={{ color: 'var(--brand-gold)', fontSize: 14, letterSpacing: '0.05em' }}>
+                {pt.ticket_number}
+              </span>
+              <span style={{ fontSize: 24, filter: 'drop-shadow(0 0 6px rgba(230,196,88,0.4))' }}>
+                {categoryIcon(pt.category)}
+              </span>
+            </div>
+            <h2 className="mb-2" style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--text-main)' }}>
+              {pt.title || 'Untitled Production Ticket'}
+            </h2>
+            <div className="d-flex gap-2 align-items-center flex-wrap">
+              <StatusBadge status={pt.status} />
+              {pt.priority && <PriorityBadge priority={pt.priority} />}
+              {pt.category && <span className="tag" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>{pt.category}</span>}
+            </div>
           </div>
-          <div className="d-flex align-items-center gap-2 mb-2">
-            <span style={{ fontSize: 26, filter: 'drop-shadow(0 0 8px rgba(230,196,88,0.5))' }}>
-              {categoryIcon(pt.category)}
-            </span>
-            <h2 className="mb-0">{pt.title || 'Untitled Production Ticket'}</h2>
-          </div>
-          <div className="d-flex gap-2 align-items-center flex-wrap">
-            <StatusBadge status={pt.status} />
-            {pt.priority && <PriorityBadge priority={pt.priority} />}
-            {pt.category && <span className="tag">{pt.category}</span>}
-          </div>
+          <Link href="/production" className="btn btn-secondary btn-sm" style={{ padding: '6px 14px', borderRadius: 8 }}>
+            ← Back to Tickets
+          </Link>
         </div>
-        <Link href="/production" className="btn btn-secondary btn-sm">← Back</Link>
       </div>
 
       {/* Global message banner */}
       {statusMsg && (
-        <div className="mb-3" style={{
-          padding: '10px 14px', borderRadius: 8, fontSize: 14, fontWeight: 600,
+        <div className="mb-4" style={{
+          padding: '12px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600,
           background: statusMsg.type === 'ok' ? '#dcfce7' : '#fee2e2',
           color: statusMsg.type === 'ok' ? '#15803d' : '#b91c1c',
+          border: `1px solid ${statusMsg.type === 'ok' ? '#86efac' : '#fca5a5'}`,
         }}>
           {statusMsg.text}
         </div>
       )}
 
-      {/* ── Karigar Action Bar (top, prominent) ── */}
+      {/* ── Karigar Action Banner ── */}
       {isKarigar(currentUser) && (
-        <div className="panel mb-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-gold)' }}>
-          <div className="panel-title" style={{ color: 'var(--brand-gold)' }}>🔨 Your Work Actions</div>
+        <div className="panel mb-4" style={{
+          background: 'linear-gradient(135deg, #1e1b18 0%, #2a241b 100%)',
+          border: '1px solid var(--brand-gold)',
+          borderRadius: 12,
+          padding: 20,
+          boxShadow: 'var(--shadow-gold)',
+        }}>
+          <div className="panel-title mb-3" style={{ color: 'var(--brand-gold)', fontSize: 16 }}>
+            🔨 Karigar Work Action Center
+          </div>
 
           {karigarActionMsg && (
             <div className="mb-3" style={{
-              padding: '8px 12px', borderRadius: 6, fontSize: 14, fontWeight: 600,
+              padding: '10px 14px', borderRadius: 8, fontSize: 14, fontWeight: 600,
               background: karigarActionMsg.type === 'ok' ? '#dcfce7' : '#fee2e2',
               color: karigarActionMsg.type === 'ok' ? '#15803d' : '#b91c1c',
             }}>
@@ -375,196 +389,214 @@ export default function ProductionDetail() {
           )}
 
           {!myAssignment ? (
-            <div className="text-muted" style={{ fontSize: 14 }}>This ticket is not assigned to you.</div>
+            <div className="text-muted" style={{ fontSize: 14 }}>This production ticket is not assigned to you.</div>
           ) : (
             <div className="d-flex flex-column gap-3">
-              {/* Note / reason input */}
               <div>
-                <label className="form-label" style={{ fontSize: 13 }}>Note (optional — shown in rejection/completion)</label>
+                <label className="form-label" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Work Notes / Completion Detail (optional)
+                </label>
                 <input
                   className="form-control"
-                  placeholder="Add a note or reason…"
+                  placeholder="Add note or reason (e.g., Finished gold casting and stone fitting)…"
                   value={karigarNote}
-                  onChange={e => setKarigarNote(e.target.value)}
-                  style={{ fontSize: 14 }}
+                  onChange={(e) => setKarigarNote(e.target.value)}
+                  style={{ fontSize: 14, background: '#120f0c', color: '#fff', borderColor: 'var(--border-gold)' }}
                 />
               </div>
 
-              <div className="d-flex gap-2 flex-wrap">
+              <div className="d-flex gap-3 flex-wrap">
                 {canAccept && (
-                  <button
-                    id="btn-accept"
-                    className="btn btn-primary"
-                    onClick={() => karigarAction('accept')}
-                  >
-                    ✅ Accept Work
+                  <button id="btn-accept" className="btn btn-primary px-4 py-2" onClick={() => karigarAction('accept')}>
+                    ✅ Accept Work Assignment
                   </button>
                 )}
                 {canReject && (
-                  <button
-                    id="btn-reject"
-                    className="btn btn-secondary"
-                    style={{ borderColor: '#ef4444', color: '#ef4444' }}
-                    onClick={() => karigarAction('reject')}
-                  >
+                  <button id="btn-reject" className="btn btn-secondary px-3 py-2" style={{ borderColor: '#ef4444', color: '#ef4444' }} onClick={() => karigarAction('reject')}>
                     ❌ Reject Work
                   </button>
                 )}
                 {canStart && (
-                  <button
-                    id="btn-start"
-                    className="btn btn-primary"
-                    onClick={() => karigarAction('start-work')}
-                  >
-                    ▶️ Start Work
+                  <button id="btn-start" className="btn btn-primary px-4 py-2" onClick={() => karigarAction('start-work')}>
+                    ▶️ Start Work in Production
                   </button>
                 )}
                 {canComplete && (
-                  <button
-                    id="btn-complete"
-                    className="btn btn-primary"
-                    style={{ background: '#15803d', borderColor: '#15803d' }}
-                    onClick={() => karigarAction('complete-work')}
-                  >
-                    🏁 Mark Complete
+                  <button id="btn-complete" className="btn btn-primary px-4 py-2" style={{ background: '#15803d', borderColor: '#15803d' }} onClick={() => karigarAction('complete-work')}>
+                    🏁 Mark Work Completed
                   </button>
                 )}
                 {myAssignment.accepted && pt.status !== 'Production' && pt.status !== 'Accepted' && (
-                  <div className="text-muted" style={{ fontSize: 13, alignSelf: 'center' }}>
-                    Current status: <strong>{pt.status}</strong> — no action needed from you right now.
+                  <div style={{ fontSize: 14, color: 'var(--text-muted)', alignSelf: 'center' }}>
+                    Current workflow stage: <strong style={{ color: 'var(--brand-gold)' }}>{pt.status}</strong> — no action needed right now.
                   </div>
                 )}
-              </div>
-
-              {/* Assignment status */}
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                Assigned: {formatDateTime(myAssignment.created_at)}
-                {myAssignment.accepted && ` · Accepted: ${formatDateTime(myAssignment.accepted_at)}`}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="tabs">
+      {/* Navigation Tabs */}
+      <div className="tabs mb-4">
         {TABS.map((t) => (
           <button key={t} className={`tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
-            {t}
+            {t} {t === 'Attachments' && attachments.length > 0 && `(${attachments.length})`}
           </button>
         ))}
       </div>
 
       {/* ── Overview Tab ── */}
       {activeTab === 'Overview' && (
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          {/* Left: ticket details */}
-          <div className="panel" style={{ flex: '1 1 300px' }}>
-            <div className="panel-title">Jewellery Specifications</div>
-            <div className="d-flex flex-column gap-3">
-              {[
-                ['Description', pt.description || '—'],
-                ['Category', pt.category || '—'],
-                ['Priority', pt.priority || '—'],
-                ['Expected Delivery', formatDate(pt.expected_delivery)],
-                ['Created', formatDateTime(pt.created_at)],
-                ['Last Updated', formatDateTime(pt.updated_at)],
-              ].map(([label, value]) => (
-                <div key={label} className="d-flex justify-content-between" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>
-                  <span className="text-secondary">{label}</span>
-                  <span style={{ maxWidth: '60%', textAlign: 'right' }}>{value}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 340px', gap: 24 }}>
+          {/* Main Left Section: Specifications & Reference Image */}
+          <div className="d-flex flex-column gap-4">
+
+            {/* Design Reference Photo Header (if present) */}
+            {primaryImage && (
+              <div className="panel" style={{ borderRadius: 12, overflow: 'hidden', padding: 0, border: '1px solid var(--border-gold)' }}>
+                <div style={{ background: 'var(--bg-subtle)', padding: '12px 16px', fontWeight: 600, color: 'var(--brand-gold)', borderBottom: '1px solid var(--border-subtle)' }}>
+                  📷 Design Reference Photo
                 </div>
-              ))}
+                <div style={{ padding: 16, background: '#120f0c', textAlign: 'center' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={primaryImage.url}
+                    alt={primaryImage.filename}
+                    style={{ maxWidth: '100%', maxHeight: 380, objectFit: 'contain', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}
+                  />
+                  <div className="mt-2 text-muted" style={{ fontSize: 12 }}>{primaryImage.filename}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Clean Specifications Grid */}
+            <div className="panel" style={{ borderRadius: 12 }}>
+              <div className="panel-title mb-3" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 10 }}>
+                💎 Jewellery Specifications
+              </div>
+
+              {/* Description Block */}
+              <div className="mb-4" style={{ background: 'var(--bg-subtle)', padding: 16, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <div className="text-secondary mb-1" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Description & Manufacturing Instructions
+                </div>
+                <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>
+                  {pt.description || 'No detailed instructions provided.'}
+                </div>
+              </div>
+
+              {/* Specs Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
+                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                  <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Category</div>
+                  <div className="fw-semibold mt-1" style={{ fontSize: 15 }}>{categoryIcon(pt.category)} {pt.category || '—'}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                  <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Priority</div>
+                  <div className="mt-1">{pt.priority ? <PriorityBadge priority={pt.priority} /> : '—'}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                  <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Expected Delivery</div>
+                  <div className="fw-semibold mt-1" style={{ fontSize: 14, color: 'var(--brand-gold)' }}>📅 {formatDate(pt.expected_delivery)}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                  <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Created Date</div>
+                  <div className="fw-semibold mt-1" style={{ fontSize: 13 }}>{formatDateTime(pt.created_at)}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-subtle)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                  <div className="text-secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Last Updated</div>
+                  <div className="fw-semibold mt-1" style={{ fontSize: 13 }}>{formatDateTime(pt.updated_at)}</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right: Status & Assignment panel */}
-          <div className="panel" style={{ minWidth: 280, flex: '0 0 300px' }}>
-            <div className="panel-title">Status & Assignments</div>
-
-            {/* Current status */}
-            <div className="mb-3">
-              <div className="text-secondary" style={{ fontSize: 13, marginBottom: 6 }}>Current Status</div>
-              <StatusBadge status={pt.status} />
-            </div>
-
-            {/* Manager: change status */}
-            {isManager(currentUser) && (
-              <div className="mb-4">
-                <label className="form-label">Change Status</label>
-                <div className="d-flex gap-2">
-                  <select className="form-select" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                    <option value="">Select status…</option>
-                    {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <button className="btn btn-primary" onClick={changeStatus} disabled={!newStatus}>Apply</button>
-                </div>
+          {/* Right Sidebar: Status & Assignment Controls */}
+          <div className="d-flex flex-column gap-4">
+            <div className="panel" style={{ borderRadius: 12, border: '1px solid var(--border-gold)' }}>
+              <div className="panel-title mb-3" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>
+                📋 Workflow & Status
               </div>
-            )}
 
-            {/* Assignments list */}
-            <div className="mb-3">
-              <div className="text-secondary" style={{ fontSize: 13, marginBottom: 6 }}>Assigned Karigars</div>
-              {assignments.length === 0 ? (
-                <div className="text-muted" style={{ fontSize: 13 }}>No karigars assigned yet.</div>
-              ) : (
-                assignments.map((a) => (
-                  <div key={a.id} className="d-flex justify-content-between align-items-center py-1" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{userName(a.assignee_id)}</div>
-                      <div className="text-muted" style={{ fontSize: 11 }}>Assigned {formatDate(a.created_at)}</div>
-                    </div>
-                    <span className={`tag ${a.accepted ? 'status-ready' : 'status-review'}`}>
-                      {a.accepted ? '✅ Accepted' : '⏳ Pending'}
-                    </span>
+              <div className="mb-4">
+                <div className="text-secondary mb-1" style={{ fontSize: 12, fontWeight: 600 }}>Current Stage</div>
+                <StatusBadge status={pt.status} />
+              </div>
+
+              {/* Manager: Change Status Dropdown */}
+              {isManager(currentUser) && (
+                <div className="mb-4 p-3" style={{ background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                  <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Override Stage Status</label>
+                  <div className="d-flex gap-2">
+                    <select className="form-select" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} style={{ fontSize: 14 }}>
+                      <option value="">Select new status…</option>
+                      {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <button className="btn btn-primary btn-sm" onClick={changeStatus} disabled={!newStatus}>Apply</button>
                   </div>
-                ))
+                </div>
+              )}
+
+              {/* Assigned Karigars List */}
+              <div className="mb-4">
+                <div className="text-secondary mb-2" style={{ fontSize: 13, fontWeight: 600 }}>Assigned Karigars</div>
+                {assignments.length === 0 ? (
+                  <div className="text-muted" style={{ fontSize: 13, fontStyle: 'italic' }}>No karigars assigned yet.</div>
+                ) : (
+                  assignments.map((a) => (
+                    <div key={a.id} className="d-flex justify-content-between align-items-center py-2 px-2 mb-2" style={{
+                      background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border-subtle)',
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>👤 {userName(a.assignee_id)}</div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>Assigned {formatDate(a.created_at)}</div>
+                      </div>
+                      <span className={`tag ${a.accepted ? 'status-ready' : 'status-review'}`} style={{ fontSize: 11 }}>
+                        {a.accepted ? '✅ Accepted' : '⏳ Pending'}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Manager: Assign Karigar Form */}
+              {isManager(currentUser) && (
+                <div className="mb-3 p-3" style={{ background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                  <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Assign New Karigar</label>
+                  <div className="d-flex gap-2 mb-2">
+                    <select className="form-select" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} style={{ fontSize: 14 }}>
+                      <option value="">Select karigar…</option>
+                      {karigars.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.full_name || k.username}
+                        </option>
+                      ))}
+                    </select>
+                    <button id="btn-assign" className="btn btn-primary btn-sm" disabled={!assigneeId || assigning} onClick={assignKarigar}>
+                      {assigning ? '…' : 'Assign'}
+                    </button>
+                  </div>
+                  {assignments.length > 0 && (
+                    <button id="btn-ping" className="btn btn-secondary btn-sm w-100 mt-2" onClick={pingKarigar}>
+                      🔔 Ping Karigar for Update
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-
-            {/* Manager: Assign karigar */}
-            {isManager(currentUser) && (
-              <div className="mb-3">
-                <label className="form-label">Assign Karigar</label>
-                <div className="d-flex gap-2">
-                  <select
-                    className="form-select"
-                    value={assigneeId}
-                    onChange={e => setAssigneeId(e.target.value)}
-                  >
-                    <option value="">Select karigar…</option>
-                    {karigars.map(k => (
-                      <option key={k.id} value={k.id}>
-                        {k.full_name || k.username}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    id="btn-assign"
-                    className="btn btn-primary"
-                    disabled={!assigneeId || assigning}
-                    onClick={assignKarigar}
-                  >
-                    {assigning ? '…' : 'Assign'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Manager: Ping karigar */}
-            {isManager(currentUser) && assignments.length > 0 && (
-              <button id="btn-ping" className="btn btn-secondary btn-sm w-100 mt-1" onClick={pingKarigar}>
-                🔔 Ping Karigar for Update
-              </button>
-            )}
           </div>
         </div>
       )}
 
       {/* ── Timeline Tab ── */}
       {activeTab === 'Timeline' && (
-        <div className="panel">
-          <div className="panel-title">Activity Timeline</div>
+        <div className="panel" style={{ borderRadius: 12 }}>
+          <div className="panel-title mb-3">Activity & Event Log</div>
           {timeline.length === 0 ? (
             <div className="empty-state">No activity recorded yet.</div>
           ) : (
@@ -576,7 +608,7 @@ export default function ProductionDetail() {
                     <span className="fw-semibold" style={{ textTransform: 'capitalize' }}>{t.event_type.replace(/_/g, ' ')}</span>
                   </div>
                   {t.actor_id && (
-                    <div className="text-secondary" style={{ fontSize: 12 }}>
+                    <div className="text-secondary mt-1" style={{ fontSize: 12 }}>
                       By: {userName(t.actor_id)}
                     </div>
                   )}
@@ -591,13 +623,13 @@ export default function ProductionDetail() {
 
       {/* ── Comments Tab ── */}
       {activeTab === 'Comments' && (
-        <div className="panel">
-          <div className="panel-title">Discussion</div>
+        <div className="panel" style={{ borderRadius: 12 }}>
+          <div className="panel-title mb-3">Discussion & Updates</div>
           <div className="d-flex gap-2 mb-4">
             <textarea
               className="form-control flex-grow-1"
               rows={3}
-              placeholder="Add a comment or update…"
+              placeholder="Add a comment or design update…"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
             />
@@ -609,14 +641,14 @@ export default function ProductionDetail() {
             <div className="empty-state">No comments yet.</div>
           ) : (
             [...comments].reverse().map((c) => (
-              <div key={c.id} className="mb-3" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
-                <div className="d-flex justify-content-between align-items-start">
-                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--brand-primary)' }}>
-                    {userName(c.author_id)}
+              <div key={c.id} className="mb-3 p-3" style={{ background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <div className="d-flex justify-content-between align-items-start mb-1">
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--brand-gold)' }}>
+                    💬 {userName(c.author_id)}
                   </div>
-                  <div className="text-muted" style={{ fontSize: 11 }}>{formatDateTime(c.created_at)}</div>
+                  <div className="text-muted" style={{ fontSize: 12 }}>{formatDateTime(c.created_at)}</div>
                 </div>
-                <div className="text-secondary mt-1" style={{ fontSize: 14, whiteSpace: 'pre-wrap' }}>{c.content}</div>
+                <div className="text-secondary" style={{ fontSize: 14, whiteSpace: 'pre-wrap' }}>{c.content}</div>
               </div>
             ))
           )}
@@ -625,33 +657,28 @@ export default function ProductionDetail() {
 
       {/* ── Attachments Tab ── */}
       {activeTab === 'Attachments' && (
-        <div className="panel">
-          <div className="panel-title">Attachments / Evidence Images</div>
+        <div className="panel" style={{ borderRadius: 12 }}>
+          <div className="panel-title mb-3">Attachments & Design Photos</div>
 
-          {/* Upload form (URL-based) */}
-          <div className="mb-4" style={{ background: 'var(--bg-subtle)', padding: 16, borderRadius: 8 }}>
-            <div className="form-label">Add Image / Evidence Link</div>
+          {/* Link / Upload Input */}
+          <div className="mb-4 p-3" style={{ background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+            <div className="form-label fw-semibold">Add Image / Attachment Link</div>
             <div className="d-flex gap-2 flex-wrap">
               <input
                 className="form-control"
-                placeholder="Image or file URL (e.g. https://…)"
+                placeholder="Image URL (https://…)"
                 value={attachUrl}
-                onChange={e => setAttachUrl(e.target.value)}
-                style={{ flex: '2 1 200px' }}
+                onChange={(e) => setAttachUrl(e.target.value)}
+                style={{ flex: '2 1 220px' }}
               />
               <input
                 className="form-control"
-                placeholder="Label / filename"
+                placeholder="Label / Filename"
                 value={attachName}
-                onChange={e => setAttachName(e.target.value)}
+                onChange={(e) => setAttachName(e.target.value)}
                 style={{ flex: '1 1 150px' }}
               />
-              <button
-                id="btn-add-attachment"
-                className="btn btn-primary"
-                disabled={!attachUrl.trim() || !attachName.trim() || addingAttach}
-                onClick={addAttachment}
-              >
+              <button id="btn-add-attachment" className="btn btn-primary" disabled={!attachUrl.trim() || !attachName.trim() || addingAttach} onClick={addAttachment}>
                 {addingAttach ? 'Adding…' : '+ Add'}
               </button>
             </div>
@@ -659,17 +686,17 @@ export default function ProductionDetail() {
 
           {attachments.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📎</div>
-              <div>No attachments yet. Upload images or paste evidence links above.</div>
+              <div className="empty-icon" style={{ fontSize: 40 }}>📎</div>
+              <div>No attachments yet. Upload design photos or add reference URLs above.</div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
               {attachments.map((a) => {
-                const isImage = /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(a.url) || a.mime_type?.startsWith('image/')
+                const isImage = /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(a.url) || a.mime_type?.startsWith('image/') || a.url.startsWith('data:image/')
                 return (
                   <div key={a.id} style={{
-                    border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden',
-                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)', borderRadius: 10, overflow: 'hidden',
+                    background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-pop)',
                   }}>
                     {isImage ? (
                       <a href={a.url} target="_blank" rel="noreferrer">
@@ -677,19 +704,18 @@ export default function ProductionDetail() {
                         <img
                           src={a.url}
                           alt={a.filename}
-                          style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }}
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }}
                         />
                       </a>
                     ) : (
-                      <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>
+                      <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>
                         📄
                       </div>
                     )}
-                    <div style={{ padding: 10 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.filename}</div>
+                    <div style={{ padding: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.filename}</div>
                       <div className="text-muted" style={{ fontSize: 11 }}>{formatDate(a.created_at)}</div>
-                      <a href={a.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm mt-1" style={{ fontSize: 12 }}>Open ↗</a>
+                      <a href={a.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm mt-2 w-100" style={{ fontSize: 12, textAlign: 'center' }}>Open Link ↗</a>
                     </div>
                   </div>
                 )
@@ -701,8 +727,8 @@ export default function ProductionDetail() {
 
       {/* ── History Tab ── */}
       {activeTab === 'History' && (
-        <div className="panel">
-          <div className="panel-title">Audit History</div>
+        <div className="panel" style={{ borderRadius: 12 }}>
+          <div className="panel-title mb-3">Audit History</div>
           {history.length === 0 ? (
             <div className="empty-state">No audit history recorded.</div>
           ) : (
@@ -710,21 +736,21 @@ export default function ProductionDetail() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Type</th>
+                    <th>Change Type</th>
                     <th>Changed By</th>
-                    <th>Old</th>
-                    <th>New</th>
+                    <th>Old Value</th>
+                    <th>New Value</th>
                     <th>Reason</th>
-                    <th>When</th>
+                    <th>Timestamp</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...history].reverse().map((h) => (
                     <tr key={h.id}>
-                      <td className="fw-semibold" style={{ textTransform: 'capitalize' }}>{h.change_type.replace(/_/g, ' ')}</td>
-                      <td style={{ fontSize: 13 }}>{userName(h.changed_by)}</td>
+                      <td className="fw-bold" style={{ textTransform: 'capitalize', color: 'var(--brand-gold)' }}>{h.change_type.replace(/_/g, ' ')}</td>
+                      <td style={{ fontSize: 13 }}>👤 {userName(h.changed_by)}</td>
                       <td className="text-muted" style={{ fontSize: 13 }}>{h.old_value || '—'}</td>
-                      <td className="text-muted" style={{ fontSize: 13 }}>{h.new_value || '—'}</td>
+                      <td className="fw-semibold" style={{ fontSize: 13 }}>{h.new_value || '—'}</td>
                       <td className="text-muted" style={{ fontSize: 13 }}>{h.reason || '—'}</td>
                       <td className="text-muted" style={{ fontSize: 13 }}>{formatDateTime(h.created_at)}</td>
                     </tr>
