@@ -14,20 +14,27 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    const targetUrl = `${API_URL}/api/v1/auth/login`
+
     try {
       // 1. Login → get token
       const form = new URLSearchParams()
       form.set('username', username)
       form.set('password', password)
-      const res = await fetch(`${API_URL}/api/v1/auth/login`, {
+
+      const res = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: form.toString(),
+      }).catch((fetchErr) => {
+        throw new Error(`Unable to connect to API target (${targetUrl}): ${fetchErr?.message || 'Connection failed'}`)
       })
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.detail || 'Invalid credentials')
+        throw new Error(body.detail || `Server returned status ${res.status}`)
       }
+
       const data = await res.json()
       localStorage.setItem('token', data.access_token)
 
@@ -39,7 +46,6 @@ export default function LoginPage() {
         const me: CurrentUser = await meRes.json()
         storeUser(me)
       } else {
-        // Fallback: store minimal info
         localStorage.setItem('username', username)
       }
 
@@ -53,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '70vh' }}>
-      <div className="panel w-100" style={{ maxWidth: 400, border: '1px solid var(--border-gold)', boxShadow: 'var(--shadow-pop)' }}>
+      <div className="panel w-100" style={{ maxWidth: 420, border: '1px solid var(--border-gold)', boxShadow: 'var(--shadow-pop)' }}>
         <div className="text-center mb-4">
           <div className="brand-badge mx-auto mb-3" style={{
             width: 56, height: 56, borderRadius: '50%', background: 'var(--brand-gold-gradient)',
@@ -94,7 +100,12 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="mb-3" style={{ color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>
+            <div className="mb-3 p-2" style={{
+              color: '#b91c1c', background: '#fee2e2', borderRadius: 6,
+              fontSize: 13, fontWeight: 600, wordBreak: 'break-word',
+            }}>
+              {error}
+            </div>
           )}
 
           <button id="login-submit" type="submit" className="btn btn-primary w-100" disabled={loading}>
@@ -104,6 +115,9 @@ export default function LoginPage() {
 
         <div className="mt-4 text-center text-muted" style={{ fontSize: 12 }}>
           <div>Test accounts: <strong>owner / Owner1234</strong> · <strong>karigar1 / Karigar1234</strong></div>
+          <div className="mt-2" style={{ fontSize: 11, opacity: 0.75, fontFamily: 'monospace' }}>
+            Target API: {API_URL}
+          </div>
         </div>
       </div>
     </div>
