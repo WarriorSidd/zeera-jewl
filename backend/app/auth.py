@@ -1,6 +1,6 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.future import select
 from sqlalchemy import update
 from .database import get_session
@@ -29,21 +29,46 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: AsyncSe
         raise credentials_exception
     q = await session.execute(select(User).where(User.username == username))
     user = q.scalars().first()
-    if user is None:
-        raise credentials_exception
-    if not user.is_active:
+    if user is None or not user.is_active:
         raise credentials_exception
     return user
 
 
 @router.post('/login', response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_session)):
-    q = await session.execute(select(User).where(User.username == form_data.username))
+async def login(request: Request, session: AsyncSession = Depends(get_session)):
+    """Bulletproof login endpoint supporting form-data (OAuth2) and JSON payloads."""
+    username = None
+    password = None
+
+    content_type = request.headers.get('content-type', '')
+    if 'application/x-www-form-urlencoded' in content_type or 'multipart/form-data' in content_type:
+        try:
+            form = await request.form()
+            username = form.get('username')
+            password = form.get('password')
+        except Exception:
+            pass
+
+    if not username or not password:
+        try:
+            body = await request.json()
+            username = body.get('username')
+            password = body.get('password')
+        except Exception:
+            pass
+
+    if not username or not password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Username and password required')
+
+    q = await session.execute(select(User).where(User.username == str(username)))
     user = q.scalars().first()
-    if not user:
+
+    if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
-    if not verify_password(form_data.password, user.hashed_password):
+
+    if not verify_password(str(password), user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
+
     access_token = create_access_token(subject=str(user.username))
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -72,7 +97,6 @@ async def list_users(
     session: AsyncSession = Depends(get_session),
 ):
     """Owner/admin: list all users. Karigars may call this to get user info for assigned tickets."""
-    # Everyone logged in can see the user list (needed for assignments display names)
     q = select(User)
     if role:
         try:
@@ -93,7 +117,6 @@ async def create_user(
 ):
     """Owner/admin: create a new user (karigar or any role)."""
     require_owner(current_user)
-    # Check username uniqueness
     existing = await session.execute(select(User).where(User.username == payload.username))
     if existing.scalars().first():
         raise HTTPException(status_code=409, detail='Username already taken')
