@@ -7,14 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import auth, models
 from .database import sync_engine, Base
 
-# Create DB tables (dev: create_all; prod: use alembic migrations)
-Base.metadata.create_all(bind=sync_engine)
+# Create DB tables safely (dev: create_all; prod: use alembic migrations)
+try:
+    Base.metadata.create_all(bind=sync_engine)
+except Exception as e:
+    print(f"[WARN] Could not run create_all on startup: {e}")
 
 app = FastAPI(title="zjewl PT Backend", version="v1")
 
 
 def get_allowed_origins() -> list[str]:
-    raw = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000")
+    raw = os.getenv("FRONTEND_ORIGINS", "*")
+    if raw.strip() == "*":
+        return ["*"]
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
@@ -25,11 +30,14 @@ except Exception:
     pass
 
 # File logger for unhandled errors
-logging.basicConfig(
-    filename=os.path.join(os.path.dirname(__file__), '..', 'logs', 'app_errors.log'),
-    level=logging.ERROR,
-    format='%(asctime)s %(levelname)s %(message)s',
-)
+try:
+    logging.basicConfig(
+        filename=os.path.join(os.path.dirname(__file__), '..', 'logs', 'app_errors.log'),
+        level=logging.ERROR,
+        format='%(asctime)s %(levelname)s %(message)s',
+    )
+except Exception:
+    pass
 
 
 @app.exception_handler(Exception)
@@ -44,10 +52,11 @@ async def global_exception_handler(request, exc):
     raise exc
 
 
+allowed_origins = get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_allowed_origins(),
-    allow_credentials=True,
+    allow_origins=allowed_origins if allowed_origins != ["*"] else ["*"],
+    allow_credentials=True if allowed_origins != ["*"] else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
